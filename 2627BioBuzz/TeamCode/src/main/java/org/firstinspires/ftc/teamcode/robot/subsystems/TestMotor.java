@@ -96,7 +96,7 @@ public class TestMotor {
 
             power = Math.max(-1.0, Math.min(1.0, power));
 
-            testMotor.setPower(power);
+            testMotor.setPower(power * 0.1);
         }
 
         TelemetryServer.getInstance().setVariable("pidTarget", targetAngle);
