@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.util.PIDController;
 
 public class TestMotor {
 
-    private static final double MOTOR_TICKS_PER_REV = 288.0;
+    private static final double MOTOR_TICKS_PER_REV = 4.0;
     private static final double GEAR_RATIO_1 = 5.0;
     private static final double GEAR_RATIO_2 = 4.0;
 
@@ -96,7 +96,7 @@ public class TestMotor {
 
             power = Math.max(-1.0, Math.min(1.0, power));
 
-            testMotor.setPower(power * 0.1);
+            testMotor.setPower(power);
         }
 
         TelemetryServer.getInstance().setVariable("pidTarget", targetAngle);
