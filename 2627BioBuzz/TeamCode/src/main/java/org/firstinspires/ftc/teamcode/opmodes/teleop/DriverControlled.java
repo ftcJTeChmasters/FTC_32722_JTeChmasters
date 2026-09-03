@@ -37,6 +37,7 @@ public class DriverControlled extends LinearOpMode {
 
         // Clean up when OpMode stops
         robot.testMotor.stop();
+        TelemetryServer.getInstance().setStarted(false);
         TelemetryServer.getInstance().setCurrentTask("Stopped");
     }
 }

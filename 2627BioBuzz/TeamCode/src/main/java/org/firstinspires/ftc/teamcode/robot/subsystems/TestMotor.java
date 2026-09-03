@@ -98,8 +98,7 @@ public class TestMotor {
 
             testMotor.setPower(power);
         }
-
-        TelemetryServer.getInstance().setVariable("pidTarget", targetAngle);
+        
         TelemetryServer.getInstance().setVariable("pidActual", getCurrentAngle());
 
         TelemetryServer.getInstance().setMotorState(
