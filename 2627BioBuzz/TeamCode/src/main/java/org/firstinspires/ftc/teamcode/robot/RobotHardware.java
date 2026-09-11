@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.robot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
+import org.firstinspires.ftc.teamcode.robot.subsystems.SideSweepers;
 import org.firstinspires.ftc.teamcode.robot.subsystems.TestMotor;
 
 /**
@@ -18,6 +19,7 @@ public class RobotHardware {
     private final LinearOpMode opMode;
     private VoltageSensor voltageSensor;
 
+    public SideSweepers sideSweepers;
     public TestMotor testMotor;
 
     public RobotHardware(LinearOpMode opMode) {
@@ -25,6 +27,7 @@ public class RobotHardware {
     }
 
     public void init() {
+        sideSweepers = new SideSweepers(opMode.hardwareMap);
         testMotor = new TestMotor(opMode.hardwareMap);
 
         TelemetryServer.getInstance().start(TELEMETRY_SERVER_PORT);
@@ -36,7 +39,12 @@ public class RobotHardware {
         }
     }
 
+    public void startSweepers() {
+        sideSweepers.startSweepers();
+    }
+
     public void updateAll() {
+        sideSweepers.update();
         testMotor.update();
 
         if (voltageSensor != null) {

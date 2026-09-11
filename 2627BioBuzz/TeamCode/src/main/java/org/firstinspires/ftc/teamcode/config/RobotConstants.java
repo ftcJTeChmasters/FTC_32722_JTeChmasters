@@ -9,6 +9,9 @@ public class RobotConstants {
     public static final double TEST_MOTOR_D = 0.0;
     public static final double TEST_MOTOR_F = 0.0;
 
+    // Side sweepers
+    public static final double SIDE_SWEEPERS_POWER = 0.5;
+
     // Controlls
     public static final double GAMEPAD_DEADZONE = 0.05; // Deadzone for gamepad sticks and triggers
 

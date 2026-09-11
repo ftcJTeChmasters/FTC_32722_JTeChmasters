@@ -5,6 +5,19 @@
       "type": "DcMotor",
       "port": "Control Hub, Port 0",
       "direction": ""
+    },
+    {
+      "name": "sideSweeperLeft",
+      "type": "CRServo",
+      "port": "Control Hub, Port 0",
+      "direction": ""
+    }
+    ,
+    {
+      "name": "sideSweeperRight",
+      "type": "CRServo",
+      "port": "Control Hub, Port 1",
+      "direction": ""
     }
   ]
 }

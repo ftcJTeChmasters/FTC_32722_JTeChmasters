@@ -29,10 +29,10 @@ public class DriverControlled extends LinearOpMode {
         TelemetryServer.getInstance().setStarted(true);
         
         while (opModeIsActive()) {
-            // Update all subsystems (runs PID loops and streams telemetry to TelemetryServer)
             robot.updateAll();
+            robot.startSweepers();
 
-            TelemetryServer.getInstance().setCurrentTask("Testing motor PID target angle");
+            TelemetryServer.getInstance().setCurrentTask("Testing Side Sweepers");
         }
 
         // Clean up when OpMode stops

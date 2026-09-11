@@ -12,4 +12,6 @@ public final class HardwareNames {
     private HardwareNames() { }
 
     public static final String TEST_MOTOR = "testMotor"; // DcMotor, Control Hub, Port 0
+    public static final String SIDE_SWEEPER_LEFT = "sideSweeperLeft"; // CRServo, Control Hub, Port 0
+    public static final String SIDE_SWEEPER_RIGHT = "sideSweeperRight"; // CRServo, Control Hub, Port 1
 }
