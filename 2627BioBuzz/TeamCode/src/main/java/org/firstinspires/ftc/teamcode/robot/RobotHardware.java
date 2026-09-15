@@ -39,10 +39,6 @@ public class RobotHardware {
         }
     }
 
-    public void startSweepers() {
-        sideSweepers.startSweepers();
-    }
-
     public void updateAll() {
         sideSweepers.update();
         testMotor.update();

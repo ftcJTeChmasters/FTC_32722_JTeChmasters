@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.teamcode.config.HardwareNames;
 import com.qualcomm.robotcore.hardware.CRServo;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
+import org.firstinspires.ftc.teamcode.util.NonBlockingWait;
 
 /**
  * SideSweepers subsystem.
@@ -17,6 +18,7 @@ public class SideSweepers {
 
     private final CRServo sideSweeperLeft;
     private final CRServo sideSweeperRight;
+    NonBlockingWait wait = new NonBlockingWait();
 
     public SideSweepers(HardwareMap hardwareMap) {
         sideSweeperLeft = hardwareMap.get(
@@ -27,6 +29,14 @@ public class SideSweepers {
                     CRServo.class,
                     HardwareNames.SIDE_SWEEPER_RIGHT
         );
+    }
+    
+    public void extendSweepers() {
+        sideSweeperLeft.setPower(-1);
+        sideSweeperRight.setPower(1);
+        wait.start(RobotConstants.SIDE_SWEEPERS_EXTEND_TIME_MS);
+        sideSweeperLeft.setPower(0);
+        sideSweeperRight.setPower(0);
     }
 
     public void startSweepers() {
