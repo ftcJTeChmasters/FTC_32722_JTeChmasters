@@ -6,6 +6,7 @@ import org.firstinspires.ftc.teamcode.config.HardwareNames;
 import com.qualcomm.robotcore.hardware.CRServo;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.util.NonBlockingWait;
+import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 
 /**
  * SideSweepers subsystem.
@@ -32,16 +33,21 @@ public class SideSweepers {
     }
     
     public void extendSweepers() {
+        TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Extending sweepers (1/3)");
         sideSweeperLeft.setPower(-1);
         sideSweeperRight.setPower(1);
+        TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Extending sweepers (2/3)");
         wait.start(RobotConstants.SIDE_SWEEPERS_EXTEND_TIME_MS);
         sideSweeperLeft.setPower(0);
         sideSweeperRight.setPower(0);
+        TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Sweepers extended (3/3)");
     }
 
     public void startSweepers() {
+        TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Starting sweepers");
         sideSweeperLeft.setPower(RobotConstants.SIDE_SWEEPERS_POWER);
         sideSweeperRight.setPower(-RobotConstants.SIDE_SWEEPERS_POWER);
+        TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Sweeping");
     }
 
     /** Call this once per loop from the OpMode, if needed. */
