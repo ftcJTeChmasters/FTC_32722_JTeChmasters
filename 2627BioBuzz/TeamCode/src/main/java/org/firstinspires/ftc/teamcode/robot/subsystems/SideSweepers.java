@@ -38,6 +38,9 @@ public class SideSweepers {
         sideSweeperRight.setPower(1);
         TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Extending sweepers (2/3)");
         wait.start(RobotConstants.SIDE_SWEEPERS_EXTEND_TIME_MS);
+        while (!wait.isDone()) {
+            
+        }
         sideSweeperLeft.setPower(0);
         sideSweeperRight.setPower(0);
         TelemetryServer.getInstance().setSubsystemTelemetry("Side Sweepers", "State", "Sweepers extended (3/3)");
