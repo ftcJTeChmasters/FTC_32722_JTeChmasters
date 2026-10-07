@@ -11,7 +11,7 @@ public class RobotConstants {
 
     // Side sweepers
     public static final double SIDE_SWEEPERS_POWER = 0.5;
-    public static final double SIDE_SWEEPERS_EXTEND_TIME_MS = 5050; // milliseconds
+    public static final double SIDE_SWEEPERS_EXTEND_TIME_MS = 2500; // milliseconds
 
     // Controlls
     public static final double GAMEPAD_DEADZONE = 0.05; // Deadzone for gamepad sticks and triggers
