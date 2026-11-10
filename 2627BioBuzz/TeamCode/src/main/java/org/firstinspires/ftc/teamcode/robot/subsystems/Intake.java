@@ -32,7 +32,7 @@ public class Intake {
 
     private final ArrayDeque<Sample> history = new ArrayDeque<>();
     private long historyStartMs = -1;   // when we started collecting the current history
-    private long idleStartMs = 0;       // when idle was entered
+    private long speedChangeStartMs = 0;       // when speed was changed
 
     public Intake(HardwareMap hardwareMap) {
         intakeMotor = hardwareMap.get(DcMotor.class, "intakeMotor");
@@ -58,7 +58,7 @@ public class Intake {
             // Idle: hold idle speed, leave idle when the speed is disturbed
             setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
 
-            if (now - idleStartMs < RobotConstants.INTAKE_IDLE_SETTLE_MS) {
+            if (now - speedChangeStartMs < RobotConstants.INTAKE_SETTLE_MS) {
                 // Let the motor settle to idle speed first, don't record yet
                 clearHistory();
             } else {
@@ -73,6 +73,7 @@ public class Intake {
             recordSample(speed, now);
             if (speed < RobotConstants.INTAKE_MOTOR_STALL_SPEED) {
                 currentState = RobotConstants.INTAKE_MOTOR_STOPED;
+                speedChangeStartMs = now;
                 clearHistory();
                 setSpeed(0.0);
             } else if (speed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
@@ -86,13 +87,16 @@ public class Intake {
                 // Speed stable for the last 5 seconds -> go to idle
                 if (isStable(now)) {
                     currentState = RobotConstants.INTAKE_MOTOR_IDLE;
-                    idleStartMs = now;
+                    speedChangeStartMs = now;
                     clearHistory();
                     setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
                 }
             }
         } else {
-            clearHistory();
+            if (now - speedChangeStartMs < RobotConstants.INTAKE_SETTLE_MS) {
+                // Let the motor settle to idle speed first, don't record yet
+                clearHistory();
+            }
             if (speed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
                 currentState = RobotConstants.INTAKE_MOTOR_NORMAL;
                 setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
