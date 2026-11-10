@@ -17,7 +17,7 @@ public class RobotConstants {
         // Speed thresholds
     public static final int     INTAKE_MOTOR_START_SPEED        =   5;
     public static final int     INTAKE_MOTOR_STALL_SPEED        =   10;
-    public static final int     INTAKE_MOTOR_SUPER_START_SPEED  =   150;
+    public static final int     INTAKE_MOTOR_SUPER_START_SPEED  =   500;
     public static final long    INTAKE_SETTLE_MS                =   500;
         // Idle detection
     public static final long    INTAKE_STABLE_TIME_MS           =   5000; // Window the speed must be stable for
