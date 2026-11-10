@@ -20,7 +20,7 @@ public class RobotConstants {
     public static final int     INTAKE_MOTOR_SUPER_START_SPEED  =   50;
         // Idle detection
     public static final long    INTAKE_STABLE_TIME_MS           =   5000; // Window the speed must be stable for
-    public static final double  INTAKE_STABLE_THRESHOLD         =   2.0;  // Max avg change (ticks/s) between loops
+    public static final double  INTAKE_STABLE_THRESHOLD         =   4.0;  // Max avg change (ticks/s) between loops
     public static final long    INTAKE_IDLE_SETTLE_MS           =   1000; // Time to let the motor settle after entering idle
     public static final double  INTAKE_IDLE_EXIT_THRESHOLD      =   15.0; // Deviation (ticks/s) from idle average that leaves idle
 }

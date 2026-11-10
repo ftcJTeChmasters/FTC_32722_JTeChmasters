@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.teamcode.util.MotorUtils;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
+import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 
 import java.util.ArrayDeque;
 
@@ -49,6 +50,9 @@ public class Intake {
     public void update() {
         long now = System.currentTimeMillis();
         double speed = getSpeed();
+        TelemetryServer.getInstance().setSubsystemTelemetry("Intake", "motorSpeed", speed);
+        TelemetryServer.getInstance().setSubsystemTelemetry("Intake", "state", currentState);
+
 
         if (currentState == RobotConstants.INTAKE_MOTOR_IDLE) {
             // Idle: hold idle speed, leave idle when the speed is disturbed
@@ -66,19 +70,19 @@ public class Intake {
                 }
             }
         } else if (currentState > RobotConstants.INTAKE_MOTOR_STOPED) {
-            if (speed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
-                currentState = RobotConstants.INTAKE_MOTOR_SUPER;
-                clearHistory();
-                setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
-            } else if (speed < RobotConstants.INTAKE_MOTOR_STALL_SPEED) {
+            recordSample(speed, now);
+            if (speed < RobotConstants.INTAKE_MOTOR_STALL_SPEED) {
                 currentState = RobotConstants.INTAKE_MOTOR_STOPED;
                 clearHistory();
                 setSpeed(0.0);
+            } else if (speed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
+                currentState = RobotConstants.INTAKE_MOTOR_SUPER;
+                clearHistory();
+                setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
             } else {
                 setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
 
                 // Speed stable for the last 5 seconds -> go to idle
-                recordSample(speed, now);
                 if (isStable(now)) {
                     currentState = RobotConstants.INTAKE_MOTOR_IDLE;
                     idleStartMs = now;
