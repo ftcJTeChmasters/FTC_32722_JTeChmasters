@@ -96,8 +96,7 @@ public class Intake {
             if (now - speedChangeStartMs < RobotConstants.INTAKE_SETTLE_MS) {
                 // Let the motor settle to idle speed first, don't record yet
                 clearHistory();
-            }
-            if (speed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
+            } else if (speed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
                 currentState = RobotConstants.INTAKE_MOTOR_NORMAL;
                 setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
             } else {
