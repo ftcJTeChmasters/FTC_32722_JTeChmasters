@@ -4,7 +4,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.teamcode.util.MotorUtils;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
-import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 
 import java.util.ArrayDeque;
 
@@ -32,10 +31,14 @@ public class Intake {
 
     private final ArrayDeque<Sample> history = new ArrayDeque<>();
     private long historyStartMs = -1;   // when we started collecting the current history
-    private long speedChangeStartMs = 0;       // when speed was changed
+    private long stateStartMs;          // when the current state was entered
+
+    // Stall recovery: 0 = none, 1 = reversing, 2 = forward super retry
+    private int recoveryStage = 0;
 
     public Intake(HardwareMap hardwareMap) {
         intakeMotor = hardwareMap.get(DcMotor.class, "intakeMotor");
+        stateStartMs = System.currentTimeMillis();
     }
 
     public double getSpeed() {
@@ -50,59 +53,104 @@ public class Intake {
     public void update() {
         long now = System.currentTimeMillis();
         double speed = getSpeed();
-        TelemetryServer.getInstance().setSubsystemTelemetry("Intake", "motorSpeed", speed);
-        TelemetryServer.getInstance().setSubsystemTelemetry("Intake", "state", currentState);
+        double absSpeed = Math.abs(speed);
 
+        // Give the motor time to spin up / change direction before judging it
+        boolean settled = now - stateStartMs >= RobotConstants.INTAKE_STATE_GRACE_MS;
+        boolean stalled = settled && absSpeed < RobotConstants.INTAKE_MOTOR_STALL_SPEED;
 
         if (currentState == RobotConstants.INTAKE_MOTOR_IDLE) {
             // Idle: hold idle speed, leave idle when the speed is disturbed
             setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
 
-            if (now - speedChangeStartMs < RobotConstants.INTAKE_SETTLE_MS) {
+            if (now - stateStartMs < RobotConstants.INTAKE_IDLE_SETTLE_MS) {
                 // Let the motor settle to idle speed first, don't record yet
                 clearHistory();
             } else {
                 recordSample(speed, now);
                 if (Math.abs(speed - averageSpeed()) > RobotConstants.INTAKE_IDLE_EXIT_THRESHOLD) {
-                    currentState = RobotConstants.INTAKE_MOTOR_NORMAL;
-                    clearHistory();
+                    enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
                 }
             }
-        } else if (currentState > RobotConstants.INTAKE_MOTOR_STOPED) {
-            recordSample(speed, now);
-            if (speed < RobotConstants.INTAKE_MOTOR_STALL_SPEED) {
-                currentState = RobotConstants.INTAKE_MOTOR_STOPED;
-                speedChangeStartMs = now;
-                clearHistory();
-                setSpeed(0.0);
-            } else if (speed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
-                currentState = RobotConstants.INTAKE_MOTOR_SUPER;
-                clearHistory();
+
+        } else if (currentState == RobotConstants.INTAKE_MOTOR_REVERSE) {
+            setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
+
+            if (stalled) {
+                // Reverse stalled too -> try forwards in super mode
+                recoveryStage = 2;
+                enterState(RobotConstants.INTAKE_MOTOR_SUPER, now);
+                setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
+            } else if (now - stateStartMs >= RobotConstants.INTAKE_REVERSE_TIME_MS) {
+                // Reversed freely, jam is cleared -> back to normal
+                recoveryStage = 0;
+                enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
+                setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
+            }
+
+        } else if (currentState == RobotConstants.INTAKE_MOTOR_SUPER) {
+            if (stalled) {
+                if (recoveryStage >= 2) {
+                    // Super retry after reverse stalled as well -> stop
+                    recoveryStage = 0;
+                    enterState(RobotConstants.INTAKE_MOTOR_STOPED, now);
+                    setSpeed(0.0);
+                } else {
+                    // First stall -> reverse first
+                    recoveryStage = 1;
+                    enterState(RobotConstants.INTAKE_MOTOR_REVERSE, now);
+                    setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
+                }
+            } else if (settled && absSpeed >= RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
+                // Pushed through, back to normal
+                recoveryStage = 0;
+                enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
+                setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
+            } else {
+                setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
+            }
+
+        } else if (currentState == RobotConstants.INTAKE_MOTOR_NORMAL) {
+            if (stalled) {
+                recoveryStage = 1;
+                enterState(RobotConstants.INTAKE_MOTOR_REVERSE, now);
+                setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
+            } else if (settled && absSpeed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
+                enterState(RobotConstants.INTAKE_MOTOR_SUPER, now);
                 setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
             } else {
                 setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
-                currentState = RobotConstants.INTAKE_MOTOR_NORMAL;
 
                 // Speed stable for the last 5 seconds -> go to idle
+                recordSample(speed, now);
                 if (isStable(now)) {
-                    currentState = RobotConstants.INTAKE_MOTOR_IDLE;
-                    speedChangeStartMs = now;
-                    clearHistory();
+                    enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
                 }
             }
+
         } else {
-            if (now - speedChangeStartMs < RobotConstants.INTAKE_SETTLE_MS) {
-                // Let the motor settle to idle speed first, don't record yet
-                clearHistory();
-            } else if (speed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
-                currentState = RobotConstants.INTAKE_MOTOR_NORMAL;
+            // STOPPED
+            if (now - stateStartMs >= RobotConstants.INTAKE_STOP_TIME_MS) {
+                // Stopped long enough -> back to idle
+                enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
+                setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
+            } else if (absSpeed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
+                enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
                 setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
             } else {
                 setSpeed(0.0);
             }
         }
+    }
+
+    // ---- State helper ----
+
+    private void enterState(int state, long now) {
+        currentState = state;
+        stateStartMs = now;
+        clearHistory();
     }
 
     // ---- Stability helpers ----

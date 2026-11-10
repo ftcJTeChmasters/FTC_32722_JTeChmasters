@@ -5,22 +5,28 @@ public class RobotConstants {
     public static final double  GAMEPAD_DEADZONE                =   0.05; // Deadzone for gamepad sticks and triggers
 
     // Intake
-        // Internal References  
-    public static final int     INTAKE_MOTOR_STOPED             =   0;
-    public static final int     INTAKE_MOTOR_IDLE               =   1;
-    public static final int     INTAKE_MOTOR_NORMAL             =   2;
-    public static final int     INTAKE_MOTOR_SUPER              =   3;
+        // Internal References
+    public static final int     INTAKE_MOTOR_STOPED             = 0;
+    public static final int     INTAKE_MOTOR_IDLE               = 1;
+    public static final int     INTAKE_MOTOR_NORMAL             = 2;
+    public static final int     INTAKE_MOTOR_SUPER              = 3;
+    public static final int     INTAKE_MOTOR_REVERSE            = 4;
         // Speeds
     public static final double  INTAKE_MOTOR_SPEED              =   0.5; 
     public static final double  INTAKE_MOTOR_SUPER_SPEED        =   1.0;
-    public static final double  INTAKE_MOTOR_IDLE_SPEED         =   0.05;
+    public static final double  INTAKE_MOTOR_IDLE_SPEED         =   0.1;
+    public static final double  INTAKE_MOTOR_REVERSE_SPEED      =  -0.5;
         // Speed thresholds
     public static final int     INTAKE_MOTOR_START_SPEED        =   5;
-    public static final int     INTAKE_MOTOR_STALL_SPEED        =   10;
+    public static final int     INTAKE_MOTOR_STALL_SPEED        =   50;
     public static final int     INTAKE_MOTOR_SUPER_START_SPEED  =   500;
-    public static final long    INTAKE_SETTLE_MS                =   500;
         // Idle detection
     public static final long    INTAKE_STABLE_TIME_MS           =   5000; // Window the speed must be stable for
     public static final double  INTAKE_STABLE_THRESHOLD         =   6.0;  // Max avg change (ticks/s) between loops
+    public static final long    INTAKE_IDLE_SETTLE_MS           =   1000; // Time to let the motor settle after entering idle
     public static final double  INTAKE_IDLE_EXIT_THRESHOLD      =   50.0; // Deviation (ticks/s) from idle average that leaves idle
+        // Stall recovery
+    public static final long    INTAKE_STATE_GRACE_MS           =   300;  // Ignore stall checks this long after a state change (spin-up / direction change)
+    public static final long    INTAKE_REVERSE_TIME_MS          =   1000; // Max time to reverse before returning to normal
+    public static final long    INTAKE_STOP_TIME_MS             =   3000; // Time stopped before going back to idle
 }
