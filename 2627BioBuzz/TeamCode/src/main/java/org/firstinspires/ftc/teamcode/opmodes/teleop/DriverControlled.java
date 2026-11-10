@@ -27,7 +27,6 @@ public class DriverControlled extends LinearOpMode {
 
         stateTimer.reset();
         TelemetryServer.getInstance().setStarted(true);
-        robot.sideSweepers.extendSweepers();
         
         while (opModeIsActive()) {
             robot.updateAll();
@@ -35,8 +34,6 @@ public class DriverControlled extends LinearOpMode {
             TelemetryServer.getInstance().setCurrentTask("Testing Side Sweepers");
         }
 
-        // Clean up when OpMode stops
-        robot.testMotor.stop();
         TelemetryServer.getInstance().setStarted(false);
         TelemetryServer.getInstance().setCurrentTask("Stopped");
     }

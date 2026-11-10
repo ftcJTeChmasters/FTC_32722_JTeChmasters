@@ -4,7 +4,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 import org.firstinspires.ftc.teamcode.robot.subsystems.Intake;
-import org.firstinspires.ftc.teamcode.robot.subsystems.SideSweepers;
 
 /**
  * Central access point for every robot subsystem.
@@ -20,7 +19,6 @@ public class RobotHardware {
     private VoltageSensor voltageSensor;
 
     public Intake intake;
-    public SideSweepers sideSweepers;
 
     public RobotHardware(LinearOpMode opMode) {
         this.opMode = opMode;
@@ -28,7 +26,6 @@ public class RobotHardware {
 
     public void init() {
         intake = new Intake(opMode.hardwareMap);
-        sideSweepers = new SideSweepers(opMode.hardwareMap);
 
         TelemetryServer.getInstance().start(TELEMETRY_SERVER_PORT);
         TelemetryServer.getInstance().setOpModeName(opMode.getClass().getSimpleName());
@@ -41,7 +38,6 @@ public class RobotHardware {
 
     public void updateAll() {
         intake.update();
-        sideSweepers.update();
 
         if (voltageSensor != null) {
             TelemetryServer.getInstance().setBatteryVoltage(voltageSensor.getVoltage());
