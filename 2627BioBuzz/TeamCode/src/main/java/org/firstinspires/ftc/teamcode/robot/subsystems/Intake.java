@@ -81,6 +81,7 @@ public class Intake {
                 setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
             } else {
                 setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
+                currentState = RobotConstants.INTAKE_MOTOR_NORMAL;
 
                 // Speed stable for the last 5 seconds -> go to idle
                 if (isStable(now)) {

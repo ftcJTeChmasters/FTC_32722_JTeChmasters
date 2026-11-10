@@ -17,10 +17,10 @@ public class RobotConstants {
         // Speed thresholds
     public static final int     INTAKE_MOTOR_START_SPEED        =   5;
     public static final int     INTAKE_MOTOR_STALL_SPEED        =   10;
-    public static final int     INTAKE_MOTOR_SUPER_START_SPEED  =   50;
+    public static final int     INTAKE_MOTOR_SUPER_START_SPEED  =   15;
         // Idle detection
     public static final long    INTAKE_STABLE_TIME_MS           =   5000; // Window the speed must be stable for
     public static final double  INTAKE_STABLE_THRESHOLD         =   4.0;  // Max avg change (ticks/s) between loops
     public static final long    INTAKE_IDLE_SETTLE_MS           =   1000; // Time to let the motor settle after entering idle
-    public static final double  INTAKE_IDLE_EXIT_THRESHOLD      =   15.0; // Deviation (ticks/s) from idle average that leaves idle
+    public static final double  INTAKE_IDLE_EXIT_THRESHOLD      =   30.0; // Deviation (ticks/s) from idle average that leaves idle
 }
