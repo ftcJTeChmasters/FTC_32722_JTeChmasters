@@ -14,12 +14,13 @@ public class DriverControlled extends LinearOpMode {
 
     private final RobotHardware robot = new RobotHardware(this);
     private final ElapsedTime stateTimer = new ElapsedTime();
-    private final ButtonUtils pad1 = new ButtonUtils(gamepad1);
+    private ButtonUtils pad1;
 
     @Override
     public void runOpMode() {
         robot.init();
         RobotConstants constants = new RobotConstants();
+        pad1 = new ButtonUtils(gamepad1);
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
