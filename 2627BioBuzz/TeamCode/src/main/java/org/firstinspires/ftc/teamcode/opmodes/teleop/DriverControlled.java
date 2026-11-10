@@ -34,6 +34,7 @@ public class DriverControlled extends LinearOpMode {
             robot.updateAll();
             if (pad1.pressed(ButtonUtils.Button.X)) {
                 robot.intake.enabled = !robot.intake.enabled;
+                robot.intake.currentState = RobotConstants.INTAKE_MOTOR_IDLE;
             }
         }
 

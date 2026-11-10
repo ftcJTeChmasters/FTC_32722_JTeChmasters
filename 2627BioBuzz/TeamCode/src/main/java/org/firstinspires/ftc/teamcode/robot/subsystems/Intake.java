@@ -17,7 +17,7 @@ import java.util.ArrayDeque;
 public class Intake {
     private final DcMotor intakeMotor;
     private final MotorUtils motorUtils = new MotorUtils();
-    private int currentState = RobotConstants.INTAKE_MOTOR_STOPED;
+    public int currentState = RobotConstants.INTAKE_MOTOR_STOPED;
 
     // Speed history used for stability detection
     private static class Sample {
