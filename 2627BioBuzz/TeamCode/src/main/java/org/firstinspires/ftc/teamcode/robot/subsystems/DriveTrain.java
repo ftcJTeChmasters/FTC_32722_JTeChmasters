@@ -18,13 +18,15 @@ public class DriveTrain {
     // Max change in power per second. 1.0 power/sec = 0 -> full in 1 s.
     // Tune these on your carpet/field tiles.
     private double accelRate = 3.0;   // speeding up (ease in)   ~0.33 s to full power
-    private double decelRate = 5.0;   // slowing down (ease out) ~0.20 s to stop
+    private double decelRate = 10.0;   // slowing down (ease out) ~0.20 s to stop
 
     private static final double MAX_DT = 0.1; // ignore loop hiccups longer than this
 
     private final DcMotor leftDriveMotor;
     private final DcMotor rightDriveMotor;
     private final MotorUtils motorUtils = new MotorUtils();
+
+    public double speedMultiplier = 0.2; // scale down power for precision driving
 
     private final ElapsedTime timer = new ElapsedTime();
     private double lastTime = 0;
@@ -35,8 +37,8 @@ public class DriveTrain {
     public DriveTrain(HardwareMap hardwareMap) {
         leftDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.LEFT_DRIVE_MOTOR);
         rightDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.RIGHT_DRIVE_MOTOR);
-        leftDriveMotor.setDirection(DcMotor.Direction.FORWARD);
-        rightDriveMotor.setDirection(DcMotor.Direction.REVERSE);
+        leftDriveMotor.setDirection(DcMotor.Direction.REVERSE);
+        rightDriveMotor.setDirection(DcMotor.Direction.FORWARD);
         timer.reset();
     }
 
@@ -49,16 +51,16 @@ public class DriveTrain {
     // ---- Targets (eased) ----
 
     public void setLeftPower(double power) {
-        targetLeft = clip(power);
+        targetLeft = clip(power * speedMultiplier);
     }
 
     public void setRightPower(double power) {
-        targetRight = clip(power);
+        targetRight = clip(power * speedMultiplier);
     }
 
     public void setPowers(double leftPower, double rightPower) {
-        targetLeft = clip(leftPower);
-        targetRight = clip(rightPower);
+        targetLeft = clip(leftPower * speedMultiplier);
+        targetRight = clip(rightPower * speedMultiplier);
     }
 
     /** Eased stop: ramps down to 0 using decelRate. */
