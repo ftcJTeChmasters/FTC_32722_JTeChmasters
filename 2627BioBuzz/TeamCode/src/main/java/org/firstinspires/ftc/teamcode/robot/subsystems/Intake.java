@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.robot.subsystems;
 
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import org.firstinspires.ftc.teamcode.config.HardwareNames;
 import org.firstinspires.ftc.teamcode.util.MotorUtils;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 
@@ -38,7 +39,7 @@ public class Intake {
     private int recoveryStage = 0;
 
     public Intake(HardwareMap hardwareMap) {
-        intakeMotor = hardwareMap.get(DcMotor.class, "intakeMotor");
+        intakeMotor = hardwareMap.get(DcMotor.class, HardwareNames.INTAKE_MOTOR);
         stateStartMs = System.currentTimeMillis();
     }
 

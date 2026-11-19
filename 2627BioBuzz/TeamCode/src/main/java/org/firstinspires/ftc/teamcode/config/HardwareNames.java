@@ -11,5 +11,7 @@ package org.firstinspires.ftc.teamcode.config;
 public final class HardwareNames {
     private HardwareNames() { }
 
-    public static final String TEST_MOTOR = "testMotor"; // DcMotor, Control Hub, Port 0
+    public static final String INTAKE_MOTOR = "IntakeMotor"; // DcMotor, Extension Hub, Port 0
+    public static final String LEFT_DRIVE_MOTOR = "LeftDriveMotor"; // DcMotor, Control Hub, Port 0
+    public static final String RIGHT_DRIVE_MOTOR = "RightDriveMotor"; // DcMotor, Control Hub, Port 1
 } 
