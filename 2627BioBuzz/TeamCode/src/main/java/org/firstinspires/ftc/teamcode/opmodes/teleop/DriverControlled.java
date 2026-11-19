@@ -36,7 +36,7 @@ public class DriverControlled extends LinearOpMode {
                 robot.intake.enabled = !robot.intake.enabled;
                 robot.intake.currentState = RobotConstants.INTAKE_MOTOR_IDLE;
             }
-            robot.driveTrain.setPowers(-gamepad1.left_stick_y, -gamepad1.right_stick_y);
+            robot.driveTrain.setPowers(gamepad1.left_stick_y, gamepad1.right_stick_y);
         }
 
         TelemetryServer.getInstance().setStarted(false);
