@@ -26,7 +26,7 @@ public class DriveTrain {
     private final DcMotor rightDriveMotor;
     private final MotorUtils motorUtils = new MotorUtils();
 
-    public double speedMultiplier = 0.2; // scale down power for precision driving
+    public double speedMultiplier = 0.5; // scale down power for precision driving
 
     private final ElapsedTime timer = new ElapsedTime();
     private double lastTime = 0;
