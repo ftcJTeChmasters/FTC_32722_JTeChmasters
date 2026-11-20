@@ -23,6 +23,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * It uses raw java.net.ServerSocket, which is available on Android/the
  * Control Hub without adding anything to build.gradle.
  *
+ * --- Master switch ---
+ *
+ * Set DISABLE_TELEMETRY to true (see the top of the class) to turn the whole
+ * thing off: no socket is opened, nothing is hosted, nothing is sent or
+ * received, no network is used, and every setter becomes an instant no-op.
+ * Getters still return their normal values, and nothing ever throws.
+ *
  * --- Usage ---
  *
  * Start it once, e.g. from RobotHardware.init():
@@ -53,6 +60,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * GET /            -> plain-text confirmation the server is reachable
  */
 public class TelemetryServer {
+
+    /**
+     * MASTER SWITCH. When true, all telemetry streaming is disabled:
+     * no server is hosted, no data is sent or received, no network is used,
+     * setters do nothing, and no errors are thrown. Internal calls still
+     * return their normal values.
+     */
+    public static boolean DISABLE_TELEMETRY = false;
 
     private static final TelemetryServer INSTANCE = new TelemetryServer();
 
@@ -122,11 +137,12 @@ public class TelemetryServer {
 
     /** Starts the server on the given port. Safe to call again to restart on a new port. */
     public synchronized void start(int port) {
+        if (DISABLE_TELEMETRY) return; // disabled: never open a socket
         stop();
         startTimeMillis = System.currentTimeMillis();
         try {
             serverSocket = new ServerSocket(port);
-        } catch (IOException bindFailure) {
+        } catch (Throwable bindFailure) {
             return; // port busy or unavailable -- fail silently, this is a debug tool
         }
         running = true;
@@ -141,21 +157,25 @@ public class TelemetryServer {
         if (serverSocket != null) {
             try {
                 serverSocket.close();
-            } catch (IOException ignored) {
+            } catch (Throwable ignored) {
             }
             serverSocket = null;
         }
     }
 
     private void acceptLoop() {
-        while (running) {
+        while (running && !DISABLE_TELEMETRY) {
             try {
-                Socket client = serverSocket.accept();
-                handleClient(client);
-            } catch (IOException acceptFailure) {
-                if (running) {
-                    // socket error while still supposed to be running -- just keep looping
+                ServerSocket socketRef = serverSocket;
+                if (socketRef == null) break;
+                Socket client = socketRef.accept();
+                if (DISABLE_TELEMETRY) {
+                    try { client.close(); } catch (Throwable ignored) {}
+                    break;
                 }
+                handleClient(client);
+            } catch (Throwable acceptFailure) {
+                // socket error while still supposed to be running -- just keep looping
             }
         }
     }
@@ -253,7 +273,7 @@ public class TelemetryServer {
             out.write(header.getBytes(StandardCharsets.UTF_8));
             out.write(body);
             out.flush();
-        } catch (IOException ignored) {
+        } catch (Throwable ignored) {
             // client disconnected mid-response, or similar -- not fatal, just drop it
         }
     }
@@ -350,14 +370,16 @@ public class TelemetryServer {
             }
 
             json.put("timestampMillis", System.currentTimeMillis());
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
         }
         return json;
     }
 
     // ---- Setters called from robot code as state changes ----
+    // Every setter returns immediately when DISABLE_TELEMETRY is true.
 
     public void setOpModeName(String name) {
+        if (DISABLE_TELEMETRY) return;
         this.opModeName = name == null ? "" : name;
         if (!isStarted && !this.opModeName.isEmpty()) {
             this.robotState = "waiting";
@@ -365,23 +387,28 @@ public class TelemetryServer {
     }
 
     public void setStarted(boolean started) {
+        if (DISABLE_TELEMETRY) return;
         this.isStarted = started;
         this.robotState = started ? "running" : "waiting";
     }
 
     public void setRobotState(String state) {
+        if (DISABLE_TELEMETRY) return;
         this.robotState = state == null ? "waiting" : state;
     }
 
     public void setCurrentTask(String task) {
+        if (DISABLE_TELEMETRY) return;
         this.currentTask = task == null ? "" : task;
     }
 
     public void setBatteryVoltage(double voltage) {
+        if (DISABLE_TELEMETRY) return;
         this.batteryVoltage = voltage;
     }
 
     public void setRuntimeSeconds(double seconds) {
+        if (DISABLE_TELEMETRY) return;
         this.runtimeSeconds = seconds;
     }
 
@@ -391,43 +418,50 @@ public class TelemetryServer {
      * encoder ticks, inches, etc.).
      */
     public void setPidGraph(double target, double actual) {
+        if (DISABLE_TELEMETRY) return;
         this.pidGraphTarget = target;
         this.pidGraphActual = actual;
     }
 
     /** Clears the PID graph feed so the dashboard falls back to its placeholder graph. */
     public void clearPidGraph() {
+        if (DISABLE_TELEMETRY) return;
         this.pidGraphTarget = null;
         this.pidGraphActual = null;
     }
 
     public void setPosition(double x, double y, double headingDegrees) {
+        if (DISABLE_TELEMETRY) return;
         this.positionX = x;
         this.positionY = y;
         this.headingDegrees = headingDegrees;
     }
 
     public void setNextPathPoint(double x, double y) {
+        if (DISABLE_TELEMETRY) return;
         this.nextPathX = x;
         this.nextPathY = y;
     }
 
     public void clearNextPathPoint() {
+        if (DISABLE_TELEMETRY) return;
         this.nextPathX = null;
         this.nextPathY = null;
     }
 
     public void setMotorState(String key, int ticks, double power) {
+        if (DISABLE_TELEMETRY || key == null) return;
         try {
             JSONObject obj = new JSONObject();
             obj.put("ticks", ticks);
             obj.put("power", power);
             motors.put(key, obj);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     public void setGamepadState(String gamepadId, double leftStickX, double leftStickY, double rightStickX, double rightStickY,
                                  boolean aPressed, boolean bPressed, boolean xPressed, boolean yPressed) {
+        if (DISABLE_TELEMETRY || gamepadId == null) return;
         try {
             JSONObject obj = new JSONObject();
             obj.put("lx", leftStickX); obj.put("ly", leftStickY);
@@ -435,7 +469,7 @@ public class TelemetryServer {
             obj.put("a", aPressed); obj.put("b", bPressed);
             obj.put("x", xPressed); obj.put("y", yPressed);
             gamepads.put(gamepadId, obj);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     /**
@@ -445,7 +479,7 @@ public class TelemetryServer {
      * up automatically in {@code RobotHardware.updateAll()} for gamepad1/gamepad2.
      */
     public void setGamepadState(String gamepadId, com.qualcomm.robotcore.hardware.Gamepad gamepad) {
-        if (gamepad == null) return;
+        if (DISABLE_TELEMETRY || gamepadId == null || gamepad == null) return;
         try {
             JSONObject obj = new JSONObject();
             obj.put("lx", gamepad.left_stick_x);
@@ -470,49 +504,57 @@ public class TelemetryServer {
             obj.put("back", gamepad.back);
             obj.put("guide", gamepad.guide);
             gamepads.put(gamepadId, obj);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     /** Sets a single named telemetry field for a subsystem (e.g. "Lift", "current", 3.2). */
     public void setSubsystemTelemetry(String subsystem, String key, Object value) {
-        if (subsystem == null || key == null) return;
-        subsystemsTelemetry
-            .computeIfAbsent(subsystem, s -> new ConcurrentHashMap<>())
-            .put(key, value);
+        if (DISABLE_TELEMETRY || subsystem == null || key == null || value == null) return;
+        try {
+            subsystemsTelemetry
+                .computeIfAbsent(subsystem, s -> new ConcurrentHashMap<>())
+                .put(key, value);
+        } catch (Throwable ignored) {}
     }
 
     /** Replaces/merges a whole batch of telemetry fields for a subsystem at once. */
     public void setSubsystemTelemetry(String subsystem, Map<String, Object> data) {
-        if (subsystem == null || data == null) return;
-        subsystemsTelemetry
-            .computeIfAbsent(subsystem, s -> new ConcurrentHashMap<>())
-            .putAll(data);
+        if (DISABLE_TELEMETRY || subsystem == null || data == null) return;
+        try {
+            subsystemsTelemetry
+                .computeIfAbsent(subsystem, s -> new ConcurrentHashMap<>())
+                .putAll(data);
+        } catch (Throwable ignored) {}
     }
 
     /** Clears all telemetry previously reported for one subsystem. */
     public void clearSubsystemTelemetry(String subsystem) {
-        if (subsystem == null) return;
+        if (DISABLE_TELEMETRY || subsystem == null) return;
         subsystemsTelemetry.remove(subsystem);
     }
 
     /** Clears telemetry for every subsystem. */
     public void clearAllSubsystemTelemetry() {
+        if (DISABLE_TELEMETRY) return;
         subsystemsTelemetry.clear();
     }
 
     public void addPathWaypoint(double x, double y) {
+        if (DISABLE_TELEMETRY) return;
         try {
             JSONObject waypoint = new JSONObject();
             waypoint.put("x", x); waypoint.put("y", y);
             pathPoints.add(waypoint);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     public void clearPathWaypoints() {
+        if (DISABLE_TELEMETRY) return;
         pathPoints.clear();
     }
 
     public void addTargetMarker(String label, double x, double y, String type) {
+        if (DISABLE_TELEMETRY) return;
         try {
             JSONObject targetMarker = new JSONObject();
             targetMarker.put("label", label);
@@ -520,37 +562,42 @@ public class TelemetryServer {
             targetMarker.put("y", y);
             targetMarker.put("type", type == null ? "target" : type);
             targets.add(targetMarker);
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     public void clearTargetMarkers() {
+        if (DISABLE_TELEMETRY) return;
         targets.clear();
     }
 
     public void reportException(String message, String stackTrace) {
+        if (DISABLE_TELEMETRY) return;
         try {
             JSONObject exc = new JSONObject();
             exc.put("message", message == null ? "Unknown exception" : message);
             exc.put("stackTrace", stackTrace == null ? "" : stackTrace);
             exc.put("timestamp", System.currentTimeMillis());
             this.lastException = exc;
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     public void clearException() {
+        if (DISABLE_TELEMETRY) return;
         this.lastException = null;
     }
 
     public void setVariable(String name, Object value) {
-        if (name == null) return;
+        if (DISABLE_TELEMETRY || name == null || value == null) return;
         variables.put(name, value);
     }
 
     public void clearVariable(String name) {
+        if (DISABLE_TELEMETRY || name == null) return;
         variables.remove(name);
     }
 
     public void clearAllVariables() {
+        if (DISABLE_TELEMETRY) return;
         variables.clear();
     }
 
