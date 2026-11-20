@@ -3,14 +3,16 @@ package org.firstinspires.ftc.teamcode.config;
 public class RobotConstants {
     // Controlls
     public static final double  GAMEPAD_DEADZONE                =   0.05; // Deadzone for gamepad sticks and triggers
+    public static final double  FAST_SPEED_MULTIPLIER           =   1.0;  // Speed multiplier for fast mode
+    public static final double  SLOW_SPEED_MULTIPLIER           =   0.2;  // Speed multiplier for slow mode
 
     // Intake
         // Internal References
-    public static final int     INTAKE_MOTOR_STOPED             = 0;
-    public static final int     INTAKE_MOTOR_IDLE               = 1;
-    public static final int     INTAKE_MOTOR_NORMAL             = 2;
-    public static final int     INTAKE_MOTOR_SUPER              = 3;
-    public static final int     INTAKE_MOTOR_REVERSE            = 4;
+    public static final int     INTAKE_MOTOR_STOPED             =   0;
+    public static final int     INTAKE_MOTOR_IDLE               =   1;
+    public static final int     INTAKE_MOTOR_NORMAL             =   2;
+    public static final int     INTAKE_MOTOR_SUPER              =   3;
+    public static final int     INTAKE_MOTOR_REVERSE            =   4;
         // Speeds
     public static final double  INTAKE_MOTOR_SPEED              =   0.5; 
     public static final double  INTAKE_MOTOR_SUPER_SPEED        =   1.0;

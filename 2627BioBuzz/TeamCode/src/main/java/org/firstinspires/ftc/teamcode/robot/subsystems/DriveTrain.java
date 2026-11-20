@@ -19,8 +19,8 @@ import org.firstinspires.ftc.teamcode.config.RobotConstants;
 public class DriveTrain {
     // Max change in power per second. 1.0 power/sec = 0 -> full in 1 s.
     // Tune these on your carpet/field tiles.
-    private double accelRate = 5.0;   // speeding up (ease in)   ~0.33 s to full power
-    private double decelRate = 25.0;   // slowing down (ease out) ~0.20 s to stop
+    private double accelerationRate = 5.0;   // speeding up (ease in)   ~0.33 s to full power
+    private double decelerationRate = 25.0;   // slowing down (ease out) ~0.20 s to stop
 
     private static final double MAX_DT = 0.1; // ignore loop hiccups longer than this
 
@@ -50,9 +50,9 @@ public class DriveTrain {
     }
 
     /** Tune ramp speeds (power change per second). */
-    public void setRampRates(double accelPerSec, double decelPerSec) {
-        this.accelRate = Math.max(0.01, accelPerSec);
-        this.decelRate = Math.max(0.01, decelPerSec);
+    public void setRampRates(double accelerationPerSec, double decelerationPerSec) {
+        this.accelerationRate = Math.max(0.01, accelerationPerSec);
+        this.decelerationRate = Math.max(0.01, decelerationPerSec);
     }
 
     // ---- Targets (eased) ----
@@ -124,14 +124,14 @@ public class DriveTrain {
         boolean decelerating = Math.abs(target) < Math.abs(current)
                 || Math.signum(target) != Math.signum(current) && current != 0;
 
-        double maxStep = (decelerating ? decelRate : accelRate) * dt;
+        double maxStep = (decelerating ? decelerationRate : accelerationRate) * dt;
         double error = target - current;
 
         if (Math.abs(error) <= maxStep) return target;
         return current + Math.copySign(maxStep, error);
     }
 
-    private double clip(double v) {
-        return Math.max(-1.0, Math.min(1.0, v));
+    private double clip(double velocity) {
+        return Math.max(-1.0, Math.min(1.0, velocity));
     }
 }

@@ -39,11 +39,11 @@ public class DriverControlled extends LinearOpMode {
             if (pad1.pressed(ButtonUtils.Button.Y)) {  // if TRIANGLE is pressed, emergency overwrite reverse intake direction (for clearing jams)
                 robot.intake.currentState = RobotConstants.INTAKE_MOTOR_REVERSE;
             }
-            if (pad1.pressed(ButtonUtils.Button.DPAD_UP)) { // if UP is pressed, set speed multiplier to 1.0 (full speed)
-                robot.driveTrain.setSpeedMultiplier(1.0);
+            if (pad1.pressed(ButtonUtils.Button.RIGHT_BUMPER)) { // if RIGHT BUMPER is pressed, set speed multiplier to 1.0 (full speed)
+                robot.driveTrain.setSpeedMultiplier(RobotConstants.FAST_SPEED_MULTIPLIER);
             }
-            if (pad1.pressed(ButtonUtils.Button.DPAD_DOWN)) { // if DOWN is pressed, set speed multiplier to 0.2 (low speed)
-                robot.driveTrain.setSpeedMultiplier(0.2);
+            if (pad1.pressed(ButtonUtils.Button.LEFT_BUMPER)) { // if LEFT BUMPER is pressed, set speed multiplier to 0.2 (low speed)
+                robot.driveTrain.setSpeedMultiplier(RobotConstants.SLOW_SPEED_MULTIPLIER);
             }
             robot.driveTrain.setPowers(gamepad1.left_stick_y, gamepad1.right_stick_y);
         }
