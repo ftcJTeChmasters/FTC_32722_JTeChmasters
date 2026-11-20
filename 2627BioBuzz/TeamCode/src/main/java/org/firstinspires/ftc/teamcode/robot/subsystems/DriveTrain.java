@@ -13,6 +13,8 @@ import org.firstinspires.ftc.teamcode.config.RobotConstants;
  * setPowers()/setLeftPower()/setRightPower() set TARGET powers.
  * update() MUST be called once per loop; it ramps the real motor power
  * toward the target so the wheels don't slip.
+ *
+ * When power reaches 0 the motors BRAKE (resist rotation) instead of coasting.
  */
 public class DriveTrain {
     // Max change in power per second. 1.0 power/sec = 0 -> full in 1 s.
@@ -39,6 +41,11 @@ public class DriveTrain {
         rightDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.RIGHT_DRIVE_MOTOR);
         leftDriveMotor.setDirection(DcMotor.Direction.REVERSE);
         rightDriveMotor.setDirection(DcMotor.Direction.FORWARD);
+
+        // Brake instead of coast whenever power is 0
+        leftDriveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightDriveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         timer.reset();
     }
 
@@ -63,7 +70,7 @@ public class DriveTrain {
         targetRight = clip(rightPower * speedMultiplier);
     }
 
-    /** Eased stop: ramps down to 0 using decelRate. */
+    /** Eased stop: ramps down to 0 using decelRate, then brakes. */
     public void stop() {
         targetLeft = 0;
         targetRight = 0;
