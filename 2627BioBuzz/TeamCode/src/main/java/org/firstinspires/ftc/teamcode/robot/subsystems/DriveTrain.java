@@ -57,6 +57,10 @@ public class DriveTrain {
 
     // ---- Targets (eased) ----
 
+    public void setSpeedMultiplier(double multiplier) {
+        speedMultiplier = Math.max(0, multiplier);
+    }
+
     public void setLeftPower(double power) {
         targetLeft = clip(power * speedMultiplier);
     }
