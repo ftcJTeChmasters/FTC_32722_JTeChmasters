@@ -17,8 +17,8 @@ import org.firstinspires.ftc.teamcode.config.RobotConstants;
 public class DriveTrain {
     // Max change in power per second. 1.0 power/sec = 0 -> full in 1 s.
     // Tune these on your carpet/field tiles.
-    private double accelRate = 3.0;   // speeding up (ease in)   ~0.33 s to full power
-    private double decelRate = 10.0;   // slowing down (ease out) ~0.20 s to stop
+    private double accelRate = 5.0;   // speeding up (ease in)   ~0.33 s to full power
+    private double decelRate = 25.0;   // slowing down (ease out) ~0.20 s to stop
 
     private static final double MAX_DT = 0.1; // ignore loop hiccups longer than this
 
