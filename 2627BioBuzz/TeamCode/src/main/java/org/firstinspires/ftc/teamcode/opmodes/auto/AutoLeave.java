@@ -14,6 +14,7 @@ public class AutoLeave extends LinearOpMode {
     public void runOpMode() {
         robot.init();
         waitForStart();
+        robot.driveTrain.setPowers(0.2, 0.2);
 
         // TODO: autonomous sequence
         while (opModeIsActive()) {
