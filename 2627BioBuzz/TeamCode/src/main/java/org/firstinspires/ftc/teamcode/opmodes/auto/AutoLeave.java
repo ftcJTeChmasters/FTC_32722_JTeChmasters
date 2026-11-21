@@ -14,7 +14,7 @@ public class AutoLeave extends LinearOpMode {
         waitForStart();
 
         robot.driveTrain.setSpeedMultiplier(1.0);
-        robot.driveTrain.setPowers(0.2, 0.2);
+        robot.driveTrain.setPowers(1.0, 0.2);
         sleep(1000);
         robot.driveTrain.stop();
     }
