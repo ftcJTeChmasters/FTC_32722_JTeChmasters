@@ -20,7 +20,7 @@ public class DriveTrain {
     // Max change in power per second. 1.0 power/sec = 0 -> full in 1 s.
     // Tune these on your carpet/field tiles.
     private double accelerationRate = 5.0;   // speeding up (ease in)   ~0.33 s to full power
-    private double decelerationRate = 25.0;   // slowing down (ease out) ~0.20 s to stop
+    private double decelerationRate = 100.0;   // slowing down (ease out) ~0.20 s to stop
 
     private static final double MAX_DT = 0.1; // ignore loop hiccups longer than this
 
