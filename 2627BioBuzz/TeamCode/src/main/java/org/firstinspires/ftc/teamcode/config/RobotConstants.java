@@ -4,7 +4,7 @@ public class RobotConstants {
     // Controlls
     public static final double  GAMEPAD_DEADZONE                =   0.05; // Deadzone for gamepad sticks and triggers
     public static final double  FAST_SPEED_MULTIPLIER           =   1.0;  // Speed multiplier for fast mode
-    public static final double  SLOW_SPEED_MULTIPLIER           =   0.2;  // Speed multiplier for slow mode
+    public static final double  SLOW_SPEED_MULTIPLIER           =   0.5;  // Speed multiplier for slow mode
 
     // Intake
         // Internal References
