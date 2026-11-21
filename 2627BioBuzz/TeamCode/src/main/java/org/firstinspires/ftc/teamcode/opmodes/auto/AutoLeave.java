@@ -1,0 +1,28 @@
+package org.firstinspires.ftc.teamcode.opmodes.auto;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import org.firstinspires.ftc.teamcode.robot.RobotHardware;
+import org.firstinspires.ftc.teamcode.util.NonBlockingWait;
+
+@Autonomous(name = "Auto Leave")
+public class AutoLeave extends LinearOpMode {
+    RobotHardware robot = new RobotHardware(this);
+    NonBlockingWait wait = new NonBlockingWait();
+
+    @Override
+    public void runOpMode() {
+        robot.init();
+        waitForStart();
+
+        // TODO: autonomous sequence
+        while (opModeIsActive()) {
+            robot.updateAll();
+            robot.driveTrain.setPowers(0.2, 0.2);
+            wait.start(500);
+            if (wait.isDone()) {
+                robot.driveTrain.stop();
+            }
+        }
+    }
+}
