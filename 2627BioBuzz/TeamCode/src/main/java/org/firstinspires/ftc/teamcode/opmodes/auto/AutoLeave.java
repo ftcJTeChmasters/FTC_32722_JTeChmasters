@@ -21,16 +21,16 @@ public class AutoLeave extends LinearOpMode {
         stateTimer.reset();
 
         // TODO: autonomous sequence
-        while (opModeIsActive()) {
-            wait.start(1000);
-            robot.driveTrain.setPowers(-0.2, -0.2);
-            while (!wait.isDone()) {
-                robot.updateAll();
-                if (wait.isDone()) {
-                    break;
-                }
+        wait.start(1000);
+        robot.driveTrain.setPowers(-0.2, -0.2);
+        while (!wait.isDone()) {
+            robot.updateAll();
+            if (wait.isDone()) {
+                robot.driveTrain.stop();
+                break;
             }
-            robot.driveTrain.stop();
         }
+        robot.driveTrain.stopImmediately();
+    
     }
 }
