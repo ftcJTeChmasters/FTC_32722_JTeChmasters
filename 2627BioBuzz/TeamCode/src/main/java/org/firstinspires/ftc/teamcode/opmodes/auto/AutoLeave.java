@@ -1,9 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmodes.auto;
 
+import org.firstinspires.ftc.teamcode.robot.RobotHardware;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import org.firstinspires.ftc.teamcode.robot.RobotHardware;
-import org.firstinspires.ftc.teamcode.util.NonBlockingWait;
 
 @Autonomous(name = "Auto Leave")
 public class AutoLeave extends LinearOpMode {
@@ -14,6 +13,7 @@ public class AutoLeave extends LinearOpMode {
         robot.init();
         waitForStart();
 
+        robot.driveTrain.setSpeedMultiplier(1.0);
         robot.driveTrain.setPowers(0.2, 0.2);
         sleep(1000);
         robot.driveTrain.stop();
