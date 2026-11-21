@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.util.ButtonUtils;
@@ -15,11 +16,12 @@ public class DriverControlled extends LinearOpMode {
     private final RobotHardware robot = new RobotHardware(this);
     private final ElapsedTime stateTimer = new ElapsedTime();
     private ButtonUtils pad1;
+    private Servo ServoBall;    
 
     @Override
     public void runOpMode() {
         robot.init();
-        RobotConstants constants = new RobotConstants();
+        RobotConstants con4stants = new RobotConstants();
         pad1 = new ButtonUtils(gamepad1);
 
         telemetry.addData("Status", "Initialized");
@@ -29,8 +31,11 @@ public class DriverControlled extends LinearOpMode {
 
         stateTimer.reset();
         TelemetryServer.getInstance().setStarted(true);
+        ServoBall = hardwareMap.get(Servo.class, "ServoBall");
+        ServoBall.setPosition(0.7);
         
         while (opModeIsActive()) {
+            
             robot.updateAll();
             robot.driveTrain.setPowers(gamepad1.left_stick_y, gamepad1.right_stick_y);
             if (pad1.pressed(ButtonUtils.Button.X)) {  // if SQUARE is pressed, toggle intake enabled/disabled and reset state to idle
@@ -46,6 +51,11 @@ public class DriverControlled extends LinearOpMode {
             if (pad1.pressed(ButtonUtils.Button.LEFT_BUMPER)) { // if LEFT BUMPER is pressed, set speed multiplier to 0.2 (low speed)
                 robot.driveTrain.stopImmediately();
                 robot.driveTrain.setSpeedMultiplier(RobotConstants.SLOW_SPEED_MULTIPLIER);
+            }
+            if (gamepad1.a){
+                ServoBall.setPosition(0.7);
+            } else {
+                ServoBall.setPosition(0);
             }
         }
 
