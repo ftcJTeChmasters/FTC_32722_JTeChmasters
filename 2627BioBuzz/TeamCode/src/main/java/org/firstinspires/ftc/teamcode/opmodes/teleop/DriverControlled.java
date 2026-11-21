@@ -32,6 +32,7 @@ public class DriverControlled extends LinearOpMode {
         
         while (opModeIsActive()) {
             robot.updateAll();
+            robot.driveTrain.setPowers(gamepad1.left_stick_y, gamepad1.right_stick_y);
             if (pad1.pressed(ButtonUtils.Button.X)) {  // if SQUARE is pressed, toggle intake enabled/disabled and reset state to idle
                 robot.intake.enabled = !robot.intake.enabled;
                 robot.intake.currentState = RobotConstants.INTAKE_MOTOR_IDLE;
@@ -46,7 +47,6 @@ public class DriverControlled extends LinearOpMode {
                 robot.driveTrain.stop();
                 robot.driveTrain.setSpeedMultiplier(RobotConstants.SLOW_SPEED_MULTIPLIER);
             }
-            robot.driveTrain.setPowers(gamepad1.left_stick_y, gamepad1.right_stick_y);
         }
 
         TelemetryServer.getInstance().setStarted(false);
