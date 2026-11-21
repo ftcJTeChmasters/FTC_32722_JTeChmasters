@@ -14,20 +14,17 @@ public class AutoLeave extends LinearOpMode {
     public void runOpMode() {
         robot.init();
         waitForStart();
-        robot.driveTrain.setPowers(0.2, 0.2);
 
-        // TODO: autonomous sequence
-        while (opModeIsActive()) {
-            robot.updateAll();
-            wait.start(500);
+        robot.updateAll();
+        wait.start(1000);
+        robot.driveTrain.setPowers(0.2, 0.2);
+        while (!wait.isRunning()) {
             robot.driveTrain.setPowers(0.2, 0.2);
-            while (!wait.isRunning()) {
-                robot.driveTrain.setPowers(0.2, 0.2);
-            }
-            while (!wait.isDone()) {
-                robot.driveTrain.setPowers(0.2, 0.2);
-            }
-            robot.driveTrain.stop();
         }
+        while (!wait.isDone()) {
+            robot.driveTrain.setPowers(0.2, 0.2);
+        }
+        robot.driveTrain.stop();
+
     }
 }
