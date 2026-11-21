@@ -43,6 +43,7 @@ public class DriverControlled extends LinearOpMode {
                 robot.driveTrain.setSpeedMultiplier(RobotConstants.FAST_SPEED_MULTIPLIER);
             }
             if (pad1.pressed(ButtonUtils.Button.LEFT_BUMPER)) { // if LEFT BUMPER is pressed, set speed multiplier to 0.2 (low speed)
+                robot.driveTrain.stop();
                 robot.driveTrain.setSpeedMultiplier(RobotConstants.SLOW_SPEED_MULTIPLIER);
             }
             robot.driveTrain.setPowers(gamepad1.left_stick_y, gamepad1.right_stick_y);
