@@ -31,16 +31,16 @@ public class Intake {
     public int currentState = RobotConstants.INTAKE_MOTOR_STOPPED;
 
     // Speed history used for stability detection
-    private static class Sample {
+    private static class SpeedSample {
         final long time;
         final double speed;
-        Sample(long time, double speed) {
+        SpeedSample(long time, double speed) {
             this.time = time;
             this.speed = speed;
         }
     }
 
-    private final ArrayDeque<Sample> history = new ArrayDeque<>();
+    private final ArrayDeque<SpeedSample> history = new ArrayDeque<>();
     private long historyStartMilliseconds = -1;   // when we started collecting the current history
     private long stateStartMilliseconds;          // when the current state was entered
     public boolean enabled = true;
@@ -132,7 +132,7 @@ public class Intake {
                     // Let the motor settle to idle speed first, don't record yet
                     clearHistory();
                 } else {
-                    recordSample(speed, now);
+                    recordSpeedSample(speed, now);
                     if (Math.abs(speed - averageSpeed()) > RobotConstants.INTAKE_IDLE_EXIT_THRESHOLD) {
                         enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
                         setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
@@ -188,7 +188,7 @@ public class Intake {
                     setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
 
                     // Speed stable for the last 5 seconds -> go to idle
-                    recordSample(speed, now);
+                    recordSpeedSample(speed, now);
                     if (isStable(now)) {
                         enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
                         setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
@@ -275,11 +275,11 @@ public class Intake {
 
     // ---- Stability helpers ----
 
-    private void recordSample(double speed, long now) {
+    private void recordSpeedSample(double speed, long now) {
         if (history.isEmpty() && historyStartMilliseconds < 0) {
             historyStartMilliseconds = now;
         }
-        history.addLast(new Sample(now, speed));
+        history.addLast(new SpeedSample(now, speed));
         // Drop samples older than the window
         while (!history.isEmpty()
                 && now - history.peekFirst().time > RobotConstants.INTAKE_STABLE_TIME_MS) {
@@ -295,8 +295,8 @@ public class Intake {
         if (now - historyStartMilliseconds < RobotConstants.INTAKE_STABLE_TIME_MS) return false;
 
         double totalDiff = 0;
-        Sample prev = null;
-        for (Sample s : history) {
+        SpeedSample prev = null;
+        for (SpeedSample s : history) {
             if (prev != null) {
                 totalDiff += Math.abs(s.speed - prev.speed);
             }
@@ -309,7 +309,7 @@ public class Intake {
     private double averageSpeed() {
         if (history.isEmpty()) return 0;
         double sum = 0;
-        for (Sample s : history) sum += s.speed;
+        for (SpeedSample s : history) sum += s.speed;
         return sum / history.size();
     }
 

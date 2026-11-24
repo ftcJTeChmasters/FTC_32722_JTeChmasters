@@ -185,4 +185,35 @@ public class RobotConstants {
 
     /** Speed error threshold as fraction of target (e.g., 0.2 = 20%). */
     public static final double FLYWHEEL_SPEED_ERROR_THRESHOLD_FRACTION = 0.2;
+
+    // =========================================================================
+    // Autonomous Constants
+    // =========================================================================
+
+    /** Drive power for AutoLeave routine (0.0 to 1.0). */
+    public static final double AUTO_LEAVE_DRIVE_POWER = 0.2;
+
+    /** Wait duration for AutoLeave routine (milliseconds). */
+    public static final long AUTO_LEAVE_WAIT_MILLISECONDS = 1000;
+
+    // =========================================================================
+    // DriveTrain Utility Constants
+    // =========================================================================
+
+    /** Minimum ramp rate for DriveTrain (power per second). */
+    public static final double DRIVETRAIN_MIN_RAMP_RATE = 0.01;
+
+    /** Output bounds for DriveTrain clip function. */
+    public static final double DRIVETRAIN_OUTPUT_MIN = -1.0;
+    public static final double DRIVETRAIN_OUTPUT_MAX = 1.0;
+
+    // =========================================================================
+    // PID Controller Default Constants
+    // =========================================================================
+
+    /** Default minimum output for PID controllers. */
+    public static final double PID_DEFAULT_OUTPUT_MIN = -1.0;
+
+    /** Default maximum output for PID controllers. */
+    public static final double PID_DEFAULT_OUTPUT_MAX = 1.0;
 }

@@ -16,13 +16,13 @@ import java.util.Map;
 public class MotorUtils {
 
     /** Per-motor velocity tracking state. */
-    private static class MotorVelocityState {
+    private static class MotorVelocityData {
         int lastPosition = 0;
-        long lastTimeNs = 0;
+        long lastTimeNanoseconds = 0;
     }
 
     /** Map from motor identity hash to its velocity state. */
-    private static final Map<Integer, MotorVelocityState> motorStates = new HashMap<>();
+    private static final Map<Integer, MotorVelocityData> motorStates = new HashMap<>();
 
     /**
      * Gets the motor velocity in encoder ticks per second.
@@ -44,18 +44,18 @@ public class MotorUtils {
         }
 
         int motorKey = System.identityHashCode(motor);
-        MotorVelocityState state = motorStates.computeIfAbsent(motorKey, k -> new MotorVelocityState());
+        MotorVelocityData state = motorStates.computeIfAbsent(motorKey, k -> new MotorVelocityData());
 
         int currentPosition = motor.getCurrentPosition();
         long now = System.nanoTime();
 
-        if (state.lastTimeNs == 0) {
+        if (state.lastTimeNanoseconds == 0) {
             state.lastPosition = currentPosition;
-            state.lastTimeNs = now;
+            state.lastTimeNanoseconds = now;
             return 0f;
         }
 
-        double dt = (now - state.lastTimeNs) / 1e9;
+        double dt = (now - state.lastTimeNanoseconds) / 1e9;
         if (dt <= 0) {
             return 0f;
         }
@@ -63,7 +63,7 @@ public class MotorUtils {
         double velocity = (currentPosition - state.lastPosition) / dt;
 
         state.lastPosition = currentPosition;
-        state.lastTimeNs = now;
+        state.lastTimeNanoseconds = now;
 
         return (float) velocity;
     }

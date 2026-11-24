@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.util;
 
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
+
 /**
  * PIDF Controller for motor velocity and position control.
  * <p>
@@ -22,8 +24,8 @@ public class PIDController {
     private double lastMeasurement = 0;
     private long lastTimeNanoseconds = 0;
     private double integralLimit = Double.MAX_VALUE; // anti-windup clamp
-    private double minOutput = -1.0;
-    private double maxOutput = 1.0;
+    private double minOutput = RobotConstants.PID_DEFAULT_OUTPUT_MIN;
+    private double maxOutput = RobotConstants.PID_DEFAULT_OUTPUT_MAX;
     private boolean continuousInput = false;
     private double continuousInputMinimum = 0;
     private double continuousInputMaximum = 360;

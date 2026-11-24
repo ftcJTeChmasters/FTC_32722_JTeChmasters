@@ -77,8 +77,8 @@ public class DriveTrain {
 
     /** Tune ramp speeds (power change per second). */
     public void setRampRates(double accelerationPerSec, double decelerationPerSec) {
-        this.accelerationRate = Math.max(0.01, accelerationPerSec);
-        this.decelerationRate = Math.max(0.01, decelerationPerSec);
+        this.accelerationRate = Math.max(RobotConstants.DRIVETRAIN_MIN_RAMP_RATE, accelerationPerSec);
+        this.decelerationRate = Math.max(RobotConstants.DRIVETRAIN_MIN_RAMP_RATE, decelerationPerSec);
     }
 
     // ---- Targets (eased) ----
@@ -192,7 +192,7 @@ public class DriveTrain {
     }
 
     private double clip(double velocity) {
-        return Math.max(-1.0, Math.min(1.0, velocity));
+        return Math.max(RobotConstants.DRIVETRAIN_OUTPUT_MIN, Math.min(RobotConstants.DRIVETRAIN_OUTPUT_MAX, velocity));
     }
 
     /**
@@ -200,9 +200,9 @@ public class DriveTrain {
      */
     private void checkFaults(long nowMilliseconds) {
         // Left motor
-        int leftPos = leftDriveMotor.getCurrentPosition();
-        if (leftPos != lastLeftPosition) {
-            lastLeftPosition = leftPos;
+        int leftPosition = leftDriveMotor.getCurrentPosition();
+        if (leftPosition != lastLeftPosition) {
+            lastLeftPosition = leftPosition;
             lastLeftPositionChangeMilliseconds = nowMilliseconds;
             leftEncoderFault = false;
         } else {
@@ -215,9 +215,9 @@ public class DriveTrain {
         }
 
         // Right motor
-        int rightPos = rightDriveMotor.getCurrentPosition();
-        if (rightPos != lastRightPosition) {
-            lastRightPosition = rightPos;
+        int rightPosition = rightDriveMotor.getCurrentPosition();
+        if (rightPosition != lastRightPosition) {
+            lastRightPosition = rightPosition;
             lastRightPositionChangeMilliseconds = nowMilliseconds;
             rightEncoderFault = false;
         } else {

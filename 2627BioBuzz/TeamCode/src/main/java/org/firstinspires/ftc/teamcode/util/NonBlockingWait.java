@@ -19,18 +19,18 @@ package org.firstinspires.ftc.teamcode.util;
  * }</pre>
  */
 public class NonBlockingWait {
-    private long startTimeNs = 0;
-    private long durationNs = 0;
+    private long startTimeNanoseconds = 0;
+    private long durationNanoseconds = 0;
     private boolean running = false;
 
     /**
      * Starts (or restarts) the wait for the given duration in milliseconds.
      *
-     * @param durationMs duration to wait in milliseconds
+     * @param durationMilliseconds duration to wait in milliseconds
      */
-    public void start(double durationMs) {
-        this.startTimeNs = System.nanoTime();
-        this.durationNs = (long) (durationMs * 1_000_000L);
+    public void start(double durationMilliseconds) {
+        this.startTimeNanoseconds = System.nanoTime();
+        this.durationNanoseconds = (long) (durationMilliseconds * 1_000_000L);
         this.running = true;
     }
 
@@ -45,7 +45,7 @@ public class NonBlockingWait {
      */
     public boolean isDone() {
         if (!running) return false;
-        boolean done = (System.nanoTime() - startTimeNs) >= durationNs;
+        boolean done = (System.nanoTime() - startTimeNanoseconds) >= durationNanoseconds;
         if (done) running = false; // auto-clear so isDone() doesn't fire repeatedly
         return done;
     }
@@ -64,8 +64,8 @@ public class NonBlockingWait {
      *
      * @return elapsed time in milliseconds, or 0 if not running
      */
-    public double elapsedMs() {
-        return (System.nanoTime() - startTimeNs) / 1_000_000.0;
+    public double elapsedMilliseconds() {
+        return (System.nanoTime() - startTimeNanoseconds) / 1_000_000.0;
     }
 
     /**
@@ -73,9 +73,9 @@ public class NonBlockingWait {
      *
      * @return remaining time in milliseconds, or 0 if done or not running
      */
-    public double remainingMs() {
+    public double remainingMilliseconds() {
         if (!running) return 0;
-        double remaining = (durationNs - (System.nanoTime() - startTimeNs)) / 1_000_000.0;
+        double remaining = (durationNanoseconds - (System.nanoTime() - startTimeNanoseconds)) / 1_000_000.0;
         return Math.max(0, remaining);
     }
 

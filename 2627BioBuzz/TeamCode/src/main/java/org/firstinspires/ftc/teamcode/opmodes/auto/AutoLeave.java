@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import org.firstinspires.ftc.teamcode.robot.RobotHardware;
 import org.firstinspires.ftc.teamcode.util.NonBlockingWait;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
 
 /**
  * Simple autonomous that drives forward, waits, then drives backward.
@@ -21,17 +22,23 @@ public class AutoLeave extends LinearOpMode {
         waitForStart();
 
         // Drive forward slowly
-        robot.driveTrain.setPowers(0.2, 0.2);
+        robot.driveTrain.setPowers(
+                RobotConstants.AUTO_LEAVE_DRIVE_POWER,
+                RobotConstants.AUTO_LEAVE_DRIVE_POWER
+        );
 
-        // Wait 1 second
-        wait.start(1000);
+        // Wait
+        wait.start(RobotConstants.AUTO_LEAVE_WAIT_MILLISECONDS);
         while (!wait.isDone() && opModeIsActive()) {
             robot.updateAll();
         }
 
         // Drive backward slowly
-        robot.driveTrain.setPowers(-0.2, -0.2);
-        wait.start(1000);
+        robot.driveTrain.setPowers(
+                -RobotConstants.AUTO_LEAVE_DRIVE_POWER,
+                -RobotConstants.AUTO_LEAVE_DRIVE_POWER
+        );
+        wait.start(RobotConstants.AUTO_LEAVE_WAIT_MILLISECONDS);
         while (!wait.isDone() && opModeIsActive()) {
             robot.updateAll();
         }

@@ -101,15 +101,15 @@ public class ButtonUtils {
      *         pressed after being released; {@code false} otherwise
      */
     public boolean pressed(Button button) {
-        int i = button.ordinal();
+        int buttonIndex = button.ordinal();
 
         if (!isDown(button)) {
-            armed[i] = true;
+            armed[buttonIndex] = true;
             return false;
         }
 
-        if (armed[i]) {
-            armed[i] = false;
+        if (armed[buttonIndex]) {
+            armed[buttonIndex] = false;
             return true;
         }
         return false;
