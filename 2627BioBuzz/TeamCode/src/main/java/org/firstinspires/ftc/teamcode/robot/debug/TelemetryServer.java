@@ -67,7 +67,7 @@ public class TelemetryServer {
      * setters do nothing, and no errors are thrown. Internal calls still
      * return their normal values.
      */
-    public static boolean DISABLE_TELEMETRY = true;
+    public static boolean DISABLE_TELEMETRY = false;
 
     private static final TelemetryServer INSTANCE = new TelemetryServer();
 

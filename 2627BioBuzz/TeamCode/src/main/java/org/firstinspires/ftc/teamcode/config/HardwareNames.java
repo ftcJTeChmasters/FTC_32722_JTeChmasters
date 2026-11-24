@@ -14,4 +14,5 @@ public final class HardwareNames {
     public static final String INTAKE_MOTOR = "IntakeMotor"; // DcMotor, Extension Hub, Port 0
     public static final String LEFT_DRIVE_MOTOR = "LeftDriveMotor"; // DcMotor, Control Hub, Port 0
     public static final String RIGHT_DRIVE_MOTOR = "RightDriveMotor"; // DcMotor, Control Hub, Port 1
+    public static final String FLY_WHEEL_MOTOR =   "FlyWheelMotor"; // DcMotor, Extension Hub, Port 1
 } 

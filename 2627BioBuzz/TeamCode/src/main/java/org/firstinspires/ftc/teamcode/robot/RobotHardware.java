@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 import org.firstinspires.ftc.teamcode.robot.subsystems.DriveTrain;
+import org.firstinspires.ftc.teamcode.robot.subsystems.FlyWheel;
 import org.firstinspires.ftc.teamcode.robot.subsystems.Intake;
 
 /**
@@ -20,6 +21,7 @@ public class RobotHardware {
     private VoltageSensor voltageSensor;
 
     public DriveTrain driveTrain;
+    public FlyWheel flyWheel;
     public Intake intake;
 
     public RobotHardware(LinearOpMode opMode) {
@@ -28,6 +30,7 @@ public class RobotHardware {
 
     public void init() {
         driveTrain = new DriveTrain(opMode.hardwareMap);
+        flyWheel = new FlyWheel(opMode.hardwareMap);
         intake = new Intake(opMode.hardwareMap);
 
         TelemetryServer.getInstance().start(TELEMETRY_SERVER_PORT);
@@ -41,6 +44,7 @@ public class RobotHardware {
 
     public void updateAll() {
         driveTrain.update();
+        flyWheel.update();
         intake.update();
 
         if (voltageSensor != null) {

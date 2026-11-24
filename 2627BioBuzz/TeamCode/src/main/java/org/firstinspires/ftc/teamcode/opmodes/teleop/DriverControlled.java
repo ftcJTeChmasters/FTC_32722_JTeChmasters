@@ -21,7 +21,7 @@ public class DriverControlled extends LinearOpMode {
     @Override
     public void runOpMode() {
         robot.init();
-        RobotConstants con4stants = new RobotConstants();
+        RobotConstants consstants = new RobotConstants();
         pad1 = new ButtonUtils(gamepad1);
 
         telemetry.addData("Status", "Initialized");
@@ -31,8 +31,6 @@ public class DriverControlled extends LinearOpMode {
 
         stateTimer.reset();
         TelemetryServer.getInstance().setStarted(true);
-        ServoBall = hardwareMap.get(Servo.class, "ServoBall");
-        ServoBall.setPosition(0.7);
         
         while (opModeIsActive()) {
             
@@ -52,11 +50,9 @@ public class DriverControlled extends LinearOpMode {
                 robot.driveTrain.stopImmediately();
                 robot.driveTrain.setSpeedMultiplier(RobotConstants.SLOW_SPEED_MULTIPLIER);
             }
-            if (gamepad1.a){
-                ServoBall.setPosition(0.7);
-            } else {
-                ServoBall.setPosition(0);
-            }
+            if (pad1.pressed(ButtonUtils.Button.A)) { // if CROSS is pressed, toggle flywheel on/off
+                robot.flyWheel.toggle();
+            } 
         }
 
         TelemetryServer.getInstance().setStarted(false);
