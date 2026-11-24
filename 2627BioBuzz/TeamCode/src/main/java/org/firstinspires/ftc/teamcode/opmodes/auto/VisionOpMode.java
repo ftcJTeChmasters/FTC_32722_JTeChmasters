@@ -6,11 +6,18 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.firstinspires.ftc.teamcode.robot.RobotHardware;
 
+/**
+ * Autonomous mode demonstrating AprilTag detection.
+ * <p>
+ * Initializes the vision portal with an AprilTag processor and reports
+ * the number of detected tags each loop. Useful for testing camera
+ * configuration and tag detection.
+ */
 @Autonomous(name = "Vision Op Mode")
 public class VisionOpMode extends LinearOpMode {
-    RobotHardware robot = new RobotHardware(this);
-    AprilTagProcessor aprilTag;
-    VisionPortal visionPortal;
+    private final RobotHardware robot = new RobotHardware(this);
+    private AprilTagProcessor aprilTag;
+    private VisionPortal visionPortal;
 
     @Override
     public void runOpMode() {

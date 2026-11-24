@@ -2,20 +2,23 @@ package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
-import org.firstinspires.ftc.teamcode.config.RobotConstants;
-
 import org.firstinspires.ftc.teamcode.robot.RobotHardware;
+
+/**
+ * Minimal TeleOp for testing subsystem initialization and telemetry.
+ * <p>
+ * No driver controls — just initializes the robot and streams telemetry
+ * to the TelemetryServer for dashboard debugging.
+ */
 @TeleOp(name = "Testing")
 public class Testing extends LinearOpMode {
-    RobotHardware robot = new RobotHardware(this);
+    private final RobotHardware robot = new RobotHardware(this);
 
     @Override
     public void runOpMode() {
         robot.init();
-        RobotConstants constants = new RobotConstants();
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -23,7 +26,7 @@ public class Testing extends LinearOpMode {
         waitForStart();
 
         TelemetryServer.getInstance().setStarted(true);
-        
+
         while (opModeIsActive()) {
             robot.updateAll();
         }

@@ -2,25 +2,47 @@ package org.firstinspires.ftc.teamcode.util;
 
 /**
  * A non-blocking wait/timer you can poll from your OpMode loop.
- * Usage:
- *   NonBlockingWait wait = new NonBlockingWait();
- *   wait.start(1000); // ms
- *   ...
- *   if (wait.isDone()) { ... }
+ * <p>
+ * Unlike {@code sleep()}, this doesn't block the thread — you call
+ * {@link #start(double)} once, then poll {@link #isDone()} each loop.
+ * <p>
+ * Example usage:
+ * <pre>{@code
+ * NonBlockingWait wait = new NonBlockingWait();
+ * wait.start(1000); // 1 second
+ *
+ * while (opModeIsActive()) {
+ *     if (wait.isDone()) {
+ *         // do something after 1 second
+ *     }
+ * }
+ * }</pre>
  */
 public class NonBlockingWait {
     private long startTimeNs = 0;
     private long durationNs = 0;
     private boolean running = false;
 
-    /** Start (or restart) the wait for the given duration in milliseconds. */
+    /**
+     * Starts (or restarts) the wait for the given duration in milliseconds.
+     *
+     * @param durationMs duration to wait in milliseconds
+     */
     public void start(double durationMs) {
         this.startTimeNs = System.nanoTime();
         this.durationNs = (long) (durationMs * 1_000_000L);
         this.running = true;
     }
 
-    /** Returns true once the duration has elapsed since start(). */
+    /**
+     * Returns {@code true} once the duration has elapsed since {@link #start(double)}.
+     * <p>
+     * After returning {@code true} once, automatically clears the running state
+     * so subsequent calls return {@code false} until {@link #start(double)} is
+     * called again.
+     *
+     * @return {@code true} if the wait is complete, {@code false} otherwise
+     */
     public boolean isDone() {
         if (!running) return false;
         boolean done = (System.nanoTime() - startTimeNs) >= durationNs;
@@ -28,24 +50,41 @@ public class NonBlockingWait {
         return done;
     }
 
-    /** True while the timer is actively counting down. */
+    /**
+     * Returns {@code true} while the timer is actively counting down.
+     *
+     * @return {@code true} if the timer is running, {@code false} otherwise
+     */
     public boolean isRunning() {
         return running;
     }
 
-    /** Elapsed time in milliseconds since start() was called. */
+    /**
+     * Returns the elapsed time in milliseconds since {@link #start(double)} was called.
+     *
+     * @return elapsed time in milliseconds, or 0 if not running
+     */
     public double elapsedMs() {
         return (System.nanoTime() - startTimeNs) / 1_000_000.0;
     }
 
-    /** Remaining time in milliseconds (0 if done or not running). */
+    /**
+     * Returns the remaining time in milliseconds.
+     *
+     * @return remaining time in milliseconds, or 0 if done or not running
+     */
     public double remainingMs() {
         if (!running) return 0;
         double remaining = (durationNs - (System.nanoTime() - startTimeNs)) / 1_000_000.0;
         return Math.max(0, remaining);
     }
 
-    /** Cancel the wait early. */
+    /**
+     * Cancels the wait early.
+     * <p>
+     * After calling this, {@link #isDone()} will return {@code false} until
+     * {@link #start(double)} is called again.
+     */
     public void cancel() {
         running = false;
     }
