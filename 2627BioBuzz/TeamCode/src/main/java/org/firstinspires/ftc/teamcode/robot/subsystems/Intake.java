@@ -1,39 +1,32 @@
 package org.firstinspires.ftc.teamcode.robot.subsystems;
 
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
 import org.firstinspires.ftc.teamcode.config.HardwareNames;
-import org.firstinspires.ftc.teamcode.util.MotorUtils;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
+import org.firstinspires.ftc.teamcode.util.EmergencyStop;
+import org.firstinspires.ftc.teamcode.util.MotorErrorTracker;
+import org.firstinspires.ftc.teamcode.util.MotorFaultDetector;
+import org.firstinspires.ftc.teamcode.util.MotorUtils;
 
 import java.util.ArrayDeque;
 
 /**
  * Intake subsystem with automatic jam detection and recovery.
- * <p>
- * State machine states:
- * <ul>
- *   <li>{@link RobotConstants#INTAKE_MOTOR_STOPPED} - Motor stopped, waiting</li>
- *   <li>{@link RobotConstants#INTAKE_MOTOR_IDLE} - Holding low speed, waiting for game piece</li>
- *   <li>{@link RobotConstants#INTAKE_MOTOR_NORMAL} - Normal intake operation</li>
- *   <li>{@link RobotConstants#INTAKE_MOTOR_SUPER} - High speed for pushing through resistance</li>
- *   <li>{@link RobotConstants#INTAKE_MOTOR_REVERSE} - Reversing to clear jam</li>
- * </ul>
- * <p>
- * Call {@link #update()} once per loop from the OpMode.
  */
 public class Intake {
     private final DcMotor intakeMotor;
-    private final MotorUtils motorUtils = new MotorUtils();
+    private final MotorFaultDetector faultDetector;
 
     /** Current state of the intake state machine. */
     public int currentState = RobotConstants.INTAKE_MOTOR_STOPPED;
 
-    // Speed history used for stability detection
     private static class SpeedSample {
         final long time;
         final double speed;
+
         SpeedSample(long time, double speed) {
             this.time = time;
             this.speed = speed;
@@ -41,95 +34,180 @@ public class Intake {
     }
 
     private final ArrayDeque<SpeedSample> history = new ArrayDeque<>();
-    private long historyStartMilliseconds = -1;   // when we started collecting the current history
-    private long stateStartMilliseconds;          // when the current state was entered
+    private long historyStartMilliseconds = -1;
+    private long stateStartMilliseconds;
     public boolean enabled = true;
+    private boolean wasEnabled = true;
 
     // Stall recovery: 0 = none, 1 = reversing, 2 = forward super retry
     private int recoveryStage = 0;
 
-    // Fault detection
-    private long lastPositionChangeMilliseconds = 0;
-    private int lastPosition = 0;
-    private boolean stallDetected = false;
-    private boolean encoderFault = false;
+    private double lastSpeed = 0.0;
+    private double lastCommandedPower = 0.0;
 
     public Intake(HardwareMap hardwareMap) {
         intakeMotor = hardwareMap.get(DcMotor.class, HardwareNames.INTAKE_MOTOR);
-
-        // Clear any stale velocity state from previous OpMode runs
         MotorUtils.clearMotorState(intakeMotor);
 
+        faultDetector = new MotorFaultDetector(intakeMotor, "intake", "intake");
+        faultDetector.setPresetThresholds("intake");
+        MotorErrorTracker.getInstance().register(faultDetector);
+
         stateStartMilliseconds = System.currentTimeMillis();
-        lastPositionChangeMilliseconds = System.currentTimeMillis();
-        lastPosition = intakeMotor.getCurrentPosition();
     }
 
-    /**
-     * Returns the current motor speed in encoder ticks per second.
-     *
-     * @return motor velocity (ticks/sec)
-     */
+    /** Returns the current motor speed in encoder ticks per second. */
     public double getSpeed() {
-        return motorUtils.getMotorVelocityTicksPerSec(intakeMotor);
+        return MotorUtils.getMotorVelocityTicksPerSec(intakeMotor);
     }
 
-    /**
-     * Sets the motor power directly (bypasses state machine).
-     *
-     * @param speed motor power (-1.0 to 1.0)
-     */
+    /** Returns the most recently sampled speed from {@link #update()}. */
+    public double getLastSpeed() {
+        return lastSpeed;
+    }
+
+    /** Returns the last commanded motor power (-1.0 to 1.0). */
+    public double getMotorPower() {
+        return lastCommandedPower;
+    }
+
+    /** Sets the motor power directly (bypasses state machine). */
     public void setSpeed(double speed) {
+        lastCommandedPower = speed;
         intakeMotor.setPower(speed);
     }
 
-    /**
-     * Returns whether a motor stall has been detected.
-     *
-     * @return true if the motor appears to be stalled
-     */
-    public boolean isStallDetected() {
-        return stallDetected;
+    public static final String SUBSYSTEM_KEY = "intake";
+
+    /** Enables or disables the intake cleanly, resetting state timers and history. */
+    public void setEnabled(boolean enable) {
+        if (enable && EmergencyStop.getInstance().isSubsystemStopped(SUBSYSTEM_KEY)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        this.enabled = enable;
+        this.wasEnabled = enable;
+        this.recoveryStage = 0;
+        if (enable) {
+            enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
+        } else {
+            enterState(RobotConstants.INTAKE_MOTOR_STOPPED, now);
+            setSpeed(0.0);
+        }
     }
 
     /**
-     * Returns whether an encoder fault has been detected.
-     *
-     * @return true if the encoder appears to be malfunctioning
+     * Toggles intake enabled/disabled cleanly.
+     * If an Auto E-Stop is active on the intake, the first press clears the
+     * E-Stop latch (keeping the intake off) so the driver can safely restart.
      */
+    public void toggle() {
+        EmergencyStop eStop = EmergencyStop.getInstance();
+        if (eStop.isGlobalEStopped()) {
+            return;
+        }
+        if (eStop.isSubsystemAutoEStopped(SUBSYSTEM_KEY)) {
+            clearAutoEStop();
+            return;
+        }
+        setEnabled(!enabled);
+    }
+
+    /** Clears an active Auto E-Stop on the intake and resets its fault detector. */
+    public void clearAutoEStop() {
+        EmergencyStop.getInstance().clearSubsystem(SUBSYSTEM_KEY);
+        faultDetector.reset();
+        enabled = false;
+        wasEnabled = false;
+        recoveryStage = 0;
+        enterState(RobotConstants.INTAKE_MOTOR_STOPPED, System.currentTimeMillis());
+        setSpeed(0.0);
+    }
+
+    /** Returns true if the intake is currently locked by global or auto E-Stop. */
+    public boolean isEStopped() {
+        return EmergencyStop.getInstance().isSubsystemStopped(SUBSYSTEM_KEY);
+    }
+
+    /** Triggers manual reverse jam-clearing if enabled (resets state timer properly). */
+    public void triggerReverse() {
+        if (EmergencyStop.getInstance().isSubsystemStopped(SUBSYSTEM_KEY)) {
+            return;
+        }
+        if (!enabled) {
+            setEnabled(true);
+        }
+        recoveryStage = 0;
+        enterState(RobotConstants.INTAKE_MOTOR_REVERSE, System.currentTimeMillis());
+        setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
+    }
+
+    public boolean isStallDetected() {
+        return faultDetector.isStallDetected();
+    }
+
     public boolean isEncoderFault() {
-        return encoderFault;
+        return faultDetector.isEncoderFault();
+    }
+
+    public int getRecoveryStage() {
+        return recoveryStage;
+    }
+
+    /** Returns human-readable name for the current intake state. */
+    public String getStateName() {
+        switch (currentState) {
+            case RobotConstants.INTAKE_MOTOR_IDLE:
+                return "IDLE";
+            case RobotConstants.INTAKE_MOTOR_NORMAL:
+                return "NORMAL";
+            case RobotConstants.INTAKE_MOTOR_SUPER:
+                return "SUPER";
+            case RobotConstants.INTAKE_MOTOR_REVERSE:
+                return "REVERSE";
+            case RobotConstants.INTAKE_MOTOR_STOPPED:
+            default:
+                return "STOPPED";
+        }
     }
 
     /**
      * Call this once per loop from the OpMode.
-     * <p>
-     * Runs the intake state machine with automatic jam detection and recovery.
-     * Also performs fault detection for motor stall and encoder issues.
      */
     public void update() {
         long now = System.currentTimeMillis();
         double speed = getSpeed();
+        lastSpeed = speed;
         double absSpeed = Math.abs(speed);
-        int currentPosition = intakeMotor.getCurrentPosition();
 
-        // Fault detection: check for encoder health
-        checkEncoderFault(now, currentPosition);
+        EmergencyStop eStop = EmergencyStop.getInstance();
+        if (eStop.isSubsystemStopped(SUBSYSTEM_KEY)) {
+            enabled = false;
+            wasEnabled = false;
+            recoveryStage = 0;
+            enterState(RobotConstants.INTAKE_MOTOR_STOPPED, now);
+            setSpeed(0.0);
+            faultDetector.update(0.0, intakeMotor.getCurrentPosition(), speed);
+            reportTelemetry(speed);
+            return;
+        }
 
-        // Fault detection: check for motor stall (no position change despite power)
-        checkMotorStall(now, currentPosition, speed);
-
-        // Give the motor time to spin up / change direction before judging it
-        boolean settled = now - stateStartMilliseconds >= RobotConstants.INTAKE_STATE_GRACE_MS;
+        long elapsedInState = now - stateStartMilliseconds;
+        boolean settled = elapsedInState >= RobotConstants.INTAKE_STATE_GRACE_MS;
+        boolean spinupSettled = elapsedInState >= RobotConstants.INTAKE_SPINUP_GRACE_MS;
         boolean stalled = settled && absSpeed < RobotConstants.INTAKE_MOTOR_STALL_SPEED;
 
         if (enabled) {
+            if (!wasEnabled) {
+                wasEnabled = true;
+                recoveryStage = 0;
+                enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
+            }
+
             if (currentState == RobotConstants.INTAKE_MOTOR_IDLE) {
-                // Idle: hold idle speed, leave idle when the speed is disturbed
                 setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
 
-                if (now - stateStartMilliseconds < RobotConstants.INTAKE_IDLE_SETTLE_MS) {
-                    // Let the motor settle to idle speed first, don't record yet
+                if (elapsedInState < RobotConstants.INTAKE_IDLE_SETTLE_MS) {
                     clearHistory();
                 } else {
                     recordSpeedSample(speed, now);
@@ -143,12 +221,10 @@ public class Intake {
                 setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
 
                 if (stalled) {
-                    // Reverse stalled too -> try forwards in super mode
                     recoveryStage = 2;
                     enterState(RobotConstants.INTAKE_MOTOR_SUPER, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
-                } else if (now - stateStartMilliseconds >= RobotConstants.INTAKE_REVERSE_TIME_MS) {
-                    // Reversed freely, jam is cleared -> back to normal
+                } else if (elapsedInState >= RobotConstants.INTAKE_REVERSE_TIME_MS) {
                     recoveryStage = 0;
                     enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
@@ -157,18 +233,21 @@ public class Intake {
             } else if (currentState == RobotConstants.INTAKE_MOTOR_SUPER) {
                 if (stalled) {
                     if (recoveryStage >= 2) {
-                        // Super retry after reverse stalled as well -> stop
                         recoveryStage = 0;
                         enterState(RobotConstants.INTAKE_MOTOR_STOPPED, now);
                         setSpeed(0.0);
+                        if (RobotConstants.AUTO_ESTOP_INTAKE_ENABLED
+                                && RobotConstants.AUTO_ESTOP_INTAKE_ON_JAM_FAIL) {
+                            enabled = false;
+                            wasEnabled = false;
+                            eStop.triggerSubsystem(SUBSYSTEM_KEY, "JAMMED: Reverse + super retry failed");
+                        }
                     } else {
-                        // First stall -> reverse first
                         recoveryStage = 1;
                         enterState(RobotConstants.INTAKE_MOTOR_REVERSE, now);
                         setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
                     }
-                } else if (settled && absSpeed >= RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
-                    // Pushed through, back to normal
+                } else if (spinupSettled && absSpeed >= RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
                     recoveryStage = 0;
                     enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
@@ -181,13 +260,12 @@ public class Intake {
                     recoveryStage = 1;
                     enterState(RobotConstants.INTAKE_MOTOR_REVERSE, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_REVERSE_SPEED);
-                } else if (settled && absSpeed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
+                } else if (spinupSettled && absSpeed < RobotConstants.INTAKE_MOTOR_SUPER_START_SPEED) {
                     enterState(RobotConstants.INTAKE_MOTOR_SUPER, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_SUPER_SPEED);
                 } else {
                     setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
 
-                    // Speed stable for the last 5 seconds -> go to idle
                     recordSpeedSample(speed, now);
                     if (isStable(now)) {
                         enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
@@ -197,11 +275,11 @@ public class Intake {
 
             } else {
                 // STOPPED
-                if (now - stateStartMilliseconds >= RobotConstants.INTAKE_STOP_TIME_MS) {
-                    // Stopped long enough -> back to idle
+                if (elapsedInState >= RobotConstants.INTAKE_STOP_TIME_MS) {
                     enterState(RobotConstants.INTAKE_MOTOR_IDLE, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_IDLE_SPEED);
-                } else if (absSpeed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
+                } else if (elapsedInState >= RobotConstants.INTAKE_STOP_COAST_GRACE_MS
+                        && absSpeed > RobotConstants.INTAKE_MOTOR_START_SPEED) {
                     enterState(RobotConstants.INTAKE_MOTOR_NORMAL, now);
                     setSpeed(RobotConstants.INTAKE_MOTOR_SPEED);
                 } else {
@@ -209,63 +287,51 @@ public class Intake {
                 }
             }
         } else {
-            currentState = RobotConstants.INTAKE_MOTOR_STOPPED;
+            if (wasEnabled || currentState != RobotConstants.INTAKE_MOTOR_STOPPED) {
+                wasEnabled = false;
+                recoveryStage = 0;
+                enterState(RobotConstants.INTAKE_MOTOR_STOPPED, now);
+            }
             setSpeed(0.0);
         }
 
-        // Report telemetry
-        reportTelemetry(now, speed);
-    }
+        // Update fault detector using the power commanded this loop
+        faultDetector.update(lastCommandedPower, intakeMotor.getCurrentPosition(), speed);
 
-    /**
-     * Checks for encoder faults (stuck encoder, unrealistic jumps).
-     */
-    private void checkEncoderFault(long nowMilliseconds, int currentPosition) {
-        // Check for stuck encoder (position hasn't changed in a long time while powered)
-        if (currentPosition != lastPosition) {
-            lastPosition = currentPosition;
-            lastPositionChangeMilliseconds = nowMilliseconds;
-            encoderFault = false;
-        } else {
-            // Position unchanged - check if we're commanding power
-            double motorPower = intakeMotor.getPower();
-            if (Math.abs(motorPower) > RobotConstants.INTAKE_ENCODER_FAULT_POWER_THRESHOLD
-                    && nowMilliseconds - lastPositionChangeMilliseconds
-                            > RobotConstants.INTAKE_ENCODER_FAULT_TIMEOUT_MS) {
-                encoderFault = true;
-            }
+        if (shouldTriggerAutoEStop()) {
+            String reason = faultDetector.getPrimaryError().getShortLabel()
+                    + ": " + faultDetector.getErrorMessage();
+            eStop.triggerSubsystem(SUBSYSTEM_KEY, reason);
+            enabled = false;
+            wasEnabled = false;
+            recoveryStage = 0;
+            enterState(RobotConstants.INTAKE_MOTOR_STOPPED, now);
+            setSpeed(0.0);
         }
+
+        reportTelemetry(speed);
     }
 
-    /**
-     * Checks for motor stall (powered but not moving).
-     */
-    private void checkMotorStall(long nowMilliseconds, int currentPosition, double speed) {
-        double motorPower = intakeMotor.getPower();
-        if (Math.abs(motorPower) > RobotConstants.INTAKE_STALL_POWER_THRESHOLD
-                && Math.abs(speed) < RobotConstants.INTAKE_STALL_SPEED_THRESHOLD) {
-            if (nowMilliseconds - lastPositionChangeMilliseconds
-                    > (long) (RobotConstants.MOTOR_STALL_TIMEOUT_SECONDS * 1000)) {
-                stallDetected = true;
-            }
-        } else {
-            stallDetected = false;
+    private boolean shouldTriggerAutoEStop() {
+        if (!RobotConstants.AUTO_ESTOP_INTAKE_ENABLED) {
+            return false;
         }
+        return (RobotConstants.AUTO_ESTOP_INTAKE_ON_ENCODER_FAULT && faultDetector.isEncoderFault())
+                || (RobotConstants.AUTO_ESTOP_INTAKE_ON_OVERCURRENT && faultDetector.isOvercurrentDetected());
     }
 
-    /**
-     * Reports telemetry to TelemetryServer.
-     */
-    private void reportTelemetry(long now, double speed) {
-        TelemetryServer.getInstance().setSubsystemTelemetry("intake", "state", currentState);
-        TelemetryServer.getInstance().setSubsystemTelemetry("intake", "speed", speed);
-        TelemetryServer.getInstance().setSubsystemTelemetry("intake", "enabled", enabled);
-        TelemetryServer.getInstance().setSubsystemTelemetry("intake", "stallDetected", stallDetected);
-        TelemetryServer.getInstance().setSubsystemTelemetry("intake", "encoderFault", encoderFault);
-        TelemetryServer.getInstance().setSubsystemTelemetry("intake", "recoveryStage", recoveryStage);
+    private void reportTelemetry(double speed) {
+        TelemetryServer server = TelemetryServer.getInstance();
+        server.setSubsystemTelemetry("intake", "state", currentState);
+        server.setSubsystemTelemetry("intake", "stateName", getStateName());
+        server.setSubsystemTelemetry("intake", "speed", speed);
+        server.setSubsystemTelemetry("intake", "enabled", enabled);
+        server.setSubsystemTelemetry("intake", "stallDetected", isStallDetected());
+        server.setSubsystemTelemetry("intake", "encoderFault", isEncoderFault());
+        server.setSubsystemTelemetry("intake", "recoveryStage", recoveryStage);
+        server.setSubsystemTelemetry("intake", "error", faultDetector.getPrimaryError().name());
+        server.setSubsystemTelemetry("intake", "eStopped", isEStopped());
     }
-
-    // ---- State helper ----
 
     private void enterState(int state, long now) {
         currentState = state;
@@ -273,34 +339,28 @@ public class Intake {
         clearHistory();
     }
 
-    // ---- Stability helpers ----
-
     private void recordSpeedSample(double speed, long now) {
         if (history.isEmpty() && historyStartMilliseconds < 0) {
             historyStartMilliseconds = now;
         }
         history.addLast(new SpeedSample(now, speed));
-        // Drop samples older than the window
         while (!history.isEmpty()
                 && now - history.peekFirst().time > RobotConstants.INTAKE_STABLE_TIME_MS) {
             history.removeFirst();
         }
     }
 
-    /**
-     * Returns true if we have a full window of data and the average sample-to-sample change is small.
-     */
     private boolean isStable(long now) {
         if (historyStartMilliseconds < 0 || history.size() < 2) return false;
         if (now - historyStartMilliseconds < RobotConstants.INTAKE_STABLE_TIME_MS) return false;
 
         double totalDiff = 0;
         SpeedSample prev = null;
-        for (SpeedSample s : history) {
+        for (SpeedSample sample : history) {
             if (prev != null) {
-                totalDiff += Math.abs(s.speed - prev.speed);
+                totalDiff += Math.abs(sample.speed - prev.speed);
             }
-            prev = s;
+            prev = sample;
         }
         double averageDiff = totalDiff / (history.size() - 1);
         return averageDiff < RobotConstants.INTAKE_STABLE_THRESHOLD;
@@ -309,7 +369,9 @@ public class Intake {
     private double averageSpeed() {
         if (history.isEmpty()) return 0;
         double sum = 0;
-        for (SpeedSample s : history) sum += s.speed;
+        for (SpeedSample sample : history) {
+            sum += sample.speed;
+        }
         return sum / history.size();
     }
 

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.robot.debug;
 
+import org.firstinspires.ftc.teamcode.util.MotorError;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 
@@ -7,9 +9,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -105,6 +109,10 @@ public class TelemetryServer {
     private volatile Double pidGraphActual = null;
     private final java.util.List<JSONObject> pathPoints = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final java.util.List<JSONObject> targets = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<JSONObject> motorErrors = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private volatile boolean globalEStopped = false;
+    private volatile String globalEStopReason = "";
+    private final Map<String, String> subsystemEStops = new ConcurrentHashMap<>();
     private volatile JSONObject lastException = null;
     private volatile String lastHardwareConfigJson = null;
     private volatile PidListener pidListener = null;
@@ -144,7 +152,9 @@ public class TelemetryServer {
         stop();
         startTimeMillis = System.currentTimeMillis();
         try {
-            serverSocket = new ServerSocket(port);
+            serverSocket = new ServerSocket();
+            serverSocket.setReuseAddress(true);
+            serverSocket.bind(new InetSocketAddress(port));
         } catch (Throwable bindFailure) {
             return; // port busy or unavailable -- fail silently, this is a debug tool
         }
@@ -287,9 +297,14 @@ public class TelemetryServer {
     }
 
     private static String parsePath(String requestLine) {
-        // requestLine looks like: "GET /telemetry HTTP/1.1"
+        // requestLine looks like: "GET /telemetry?t=123 HTTP/1.1"
         String[] parts = requestLine.split(" ");
-        return parts.length >= 2 ? parts[1] : "/";
+        if (parts.length < 2) {
+            return "/";
+        }
+        String rawPath = parts[1];
+        int queryIndex = rawPath.indexOf('?');
+        return queryIndex >= 0 ? rawPath.substring(0, queryIndex) : rawPath;
     }
 
     private JSONObject buildSnapshot() {
@@ -367,6 +382,22 @@ public class TelemetryServer {
                 vars.put(entry.getKey(), entry.getValue());
             }
             json.put("variables", vars);
+
+            JSONArray motorErrArr = new JSONArray();
+            for (JSONObject errObj : motorErrors) {
+                motorErrArr.put(errObj);
+            }
+            json.put("motorErrors", motorErrArr);
+
+            JSONObject eStopObj = new JSONObject();
+            eStopObj.put("globalActive", globalEStopped);
+            eStopObj.put("globalReason", globalEStopReason);
+            JSONObject subEStopObj = new JSONObject();
+            for (Map.Entry<String, String> entry : subsystemEStops.entrySet()) {
+                subEStopObj.put(entry.getKey(), entry.getValue());
+            }
+            eStopObj.put("subsystems", subEStopObj);
+            json.put("eStop", eStopObj);
 
             if (lastException != null) {
                 json.put("lastException", lastException);
@@ -602,6 +633,36 @@ public class TelemetryServer {
     public void clearAllVariables() {
         if (DISABLE_TELEMETRY) return;
         variables.clear();
+    }
+
+    /** Publishes active motor error reports to the telemetry JSON snapshot. */
+    public void setMotorErrors(List<MotorError.MotorErrorReport> reports) {
+        if (DISABLE_TELEMETRY) return;
+        motorErrors.clear();
+        if (reports == null) return;
+        for (MotorError.MotorErrorReport report : reports) {
+            try {
+                JSONObject obj = new JSONObject();
+                obj.put("subsystem", report.getSubsystem());
+                obj.put("motor", report.getMotorName());
+                obj.put("error", report.getPrimaryError().name());
+                obj.put("severity", report.getSeverity().name());
+                obj.put("message", report.getMessage());
+                obj.put("faultCount", report.getTotalFaultCount());
+                motorErrors.add(obj);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    /** Publishes global and per-subsystem Emergency Stop state to the telemetry JSON snapshot. */
+    public void setEmergencyStop(boolean globalActive, String globalReason, Map<String, String> activeSubsystems) {
+        if (DISABLE_TELEMETRY) return;
+        this.globalEStopped = globalActive;
+        this.globalEStopReason = globalReason == null ? "" : globalReason;
+        this.subsystemEStops.clear();
+        if (activeSubsystems != null) {
+            this.subsystemEStops.putAll(activeSubsystems);
+        }
     }
 
     /** Raw JSON last pushed by "Sync Hardware Config with Robot", or null if nothing's been pushed yet. */

@@ -1,78 +1,162 @@
 package org.firstinspires.ftc.teamcode.robot.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.util.MotorUtils;
+
 import org.firstinspires.ftc.teamcode.config.HardwareNames;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
+import org.firstinspires.ftc.teamcode.robot.odometry.TwoWheelOdometry;
+import org.firstinspires.ftc.teamcode.util.EmergencyStop;
+import org.firstinspires.ftc.teamcode.util.MotorErrorTracker;
+import org.firstinspires.ftc.teamcode.util.MotorFaultDetector;
+import org.firstinspires.ftc.teamcode.util.MotorUtils;
 
 /**
- * DriveTrain subsystem with acceleration ramping (ease in / ease out).
+ * DriveTrain subsystem supporting both:
+ * <ul>
+ *   <li>Legacy 2-motor tank drive ({@link RobotConstants#MECANUM_ODO_INSTALLED} == {@code false})</li>
+ *   <li>4-motor mecanum drive + 2-pod IMU odometry ({@link RobotConstants#MECANUM_ODO_INSTALLED} == {@code true})</li>
+ * </ul>
  * <p>
- * {@link #setPowers(double, double)}, {@link #setLeftPower(double)},
- * and {@link #setRightPower(double)} set TARGET powers.
- * {@link #update()} MUST be called once per loop; it ramps the real motor
- * power toward the target so the wheels don't slip.
- * <p>
- * When power reaches 0 the motors BRAKE (resist rotation) instead of coasting.
+ * Provides smooth acceleration/deceleration ramping, BRAKE zero-power behavior,
+ * and centralized motor error monitoring via {@link MotorFaultDetector} and
+ * {@link MotorErrorTracker}.
  */
 public class DriveTrain {
-    // Max change in power per second. 1.0 power/sec = 0 -> full in 1 s.
-    // Tune these on your carpet/field tiles.
     private double accelerationRate = RobotConstants.DRIVETRAIN_ACCELERATION_RATE;
     private double decelerationRate = RobotConstants.DRIVETRAIN_DECELERATION_RATE;
 
-    private static final double MAX_DELTA_TIME =
-            RobotConstants.DRIVETRAIN_MAX_DELTA_TIME_SECONDS; // ignore loop hiccups longer than this
+    private static final double MAX_DELTA_TIME = RobotConstants.DRIVETRAIN_MAX_DELTA_TIME_SECONDS;
 
+    private final boolean mecanumInstalled = RobotConstants.MECANUM_ODO_INSTALLED;
+
+    // Legacy 2-motor tank hardware
     private final DcMotor leftDriveMotor;
     private final DcMotor rightDriveMotor;
-    private final MotorUtils motorUtils = new MotorUtils();
+    private final MotorFaultDetector leftFaultDetector;
+    private final MotorFaultDetector rightFaultDetector;
+
+    // New 4-motor mecanum + odometry hardware
+    private final DcMotor frontLeftMotor;
+    private final DcMotor frontRightMotor;
+    private final DcMotor backLeftMotor;
+    private final DcMotor backRightMotor;
+    private final MotorFaultDetector frontLeftFaultDetector;
+    private final MotorFaultDetector frontRightFaultDetector;
+    private final MotorFaultDetector backLeftFaultDetector;
+    private final MotorFaultDetector backRightFaultDetector;
+    private final TwoWheelOdometry odometry;
 
     /** Scale factor for precision driving (0.0 to 1.0). */
-    public double speedMultiplier = 1;
+    public double speedMultiplier = 1.0;
 
     private final ElapsedTime timer = new ElapsedTime();
-    private double lastTimeSeconds = 0;
+    private double lastTimeSeconds = 0.0;
 
-    private double targetLeftPower = 0;
-    private double targetRightPower = 0;
-    private double currentLeftPower = 0;
-    private double currentRightPower = 0;
+    // Legacy tank powers
+    private double targetLeftPower = 0.0;
+    private double targetRightPower = 0.0;
+    private double currentLeftPower = 0.0;
+    private double currentRightPower = 0.0;
+    private double lastLeftSpeed = 0.0;
+    private double lastRightSpeed = 0.0;
 
-    // Fault detection
-    private long lastLeftPositionChangeMilliseconds = 0;
-    private long lastRightPositionChangeMilliseconds = 0;
-    private int lastLeftPosition = 0;
-    private int lastRightPosition = 0;
-    private boolean leftStallDetected = false;
-    private boolean rightStallDetected = false;
-    private boolean leftEncoderFault = false;
-    private boolean rightEncoderFault = false;
+    // Mecanum powers
+    private double targetFrontLeftPower = 0.0;
+    private double targetFrontRightPower = 0.0;
+    private double targetBackLeftPower = 0.0;
+    private double targetBackRightPower = 0.0;
+    private double currentFrontLeftPower = 0.0;
+    private double currentFrontRightPower = 0.0;
+    private double currentBackLeftPower = 0.0;
+    private double currentBackRightPower = 0.0;
 
     public DriveTrain(HardwareMap hardwareMap) {
-        leftDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.LEFT_DRIVE_MOTOR);
-        rightDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.RIGHT_DRIVE_MOTOR);
-        leftDriveMotor.setDirection(DcMotor.Direction.REVERSE);
-        rightDriveMotor.setDirection(DcMotor.Direction.FORWARD);
+        if (mecanumInstalled) {
+            leftDriveMotor = null;
+            rightDriveMotor = null;
+            leftFaultDetector = null;
+            rightFaultDetector = null;
 
-        // Brake instead of coast whenever power is 0
-        leftDriveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightDriveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            frontLeftMotor = configureMecanumMotor(
+                    hardwareMap,
+                    HardwareNames.FRONT_LEFT_DRIVE_MOTOR,
+                    RobotConstants.MECANUM_REVERSE_FRONT_LEFT
+            );
+            frontRightMotor = configureMecanumMotor(
+                    hardwareMap,
+                    HardwareNames.FRONT_RIGHT_DRIVE_MOTOR,
+                    RobotConstants.MECANUM_REVERSE_FRONT_RIGHT
+            );
+            backLeftMotor = configureMecanumMotor(
+                    hardwareMap,
+                    HardwareNames.BACK_LEFT_DRIVE_MOTOR,
+                    RobotConstants.MECANUM_REVERSE_BACK_LEFT
+            );
+            backRightMotor = configureMecanumMotor(
+                    hardwareMap,
+                    HardwareNames.BACK_RIGHT_DRIVE_MOTOR,
+                    RobotConstants.MECANUM_REVERSE_BACK_RIGHT
+            );
 
-        // Clear any stale velocity state from previous OpMode runs
-        MotorUtils.clearMotorState(leftDriveMotor);
-        MotorUtils.clearMotorState(rightDriveMotor);
+            frontLeftFaultDetector = createDriveFaultDetector(frontLeftMotor, "frontLeft");
+            frontRightFaultDetector = createDriveFaultDetector(frontRightMotor, "frontRight");
+            backLeftFaultDetector = createDriveFaultDetector(backLeftMotor, "backLeft");
+            backRightFaultDetector = createDriveFaultDetector(backRightMotor, "backRight");
 
-        // Initialize fault detection
-        lastLeftPosition = leftDriveMotor.getCurrentPosition();
-        lastRightPosition = rightDriveMotor.getCurrentPosition();
-        lastLeftPositionChangeMilliseconds = System.currentTimeMillis();
-        lastRightPositionChangeMilliseconds = System.currentTimeMillis();
+            odometry = new TwoWheelOdometry(hardwareMap);
+        } else {
+            frontLeftMotor = null;
+            frontRightMotor = null;
+            backLeftMotor = null;
+            backRightMotor = null;
+            frontLeftFaultDetector = null;
+            frontRightFaultDetector = null;
+            backLeftFaultDetector = null;
+            backRightFaultDetector = null;
+            odometry = null;
+
+            leftDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.LEFT_DRIVE_MOTOR);
+            rightDriveMotor = hardwareMap.get(DcMotor.class, HardwareNames.RIGHT_DRIVE_MOTOR);
+            leftDriveMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+            rightDriveMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+            leftDriveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            rightDriveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            MotorUtils.clearMotorState(leftDriveMotor);
+            MotorUtils.clearMotorState(rightDriveMotor);
+
+            leftFaultDetector = createDriveFaultDetector(leftDriveMotor, "leftDrive");
+            rightFaultDetector = createDriveFaultDetector(rightDriveMotor, "rightDrive");
+            leftFaultDetector.setEncoderCheckEnabled(true);
+            rightFaultDetector.setEncoderCheckEnabled(true);
+        }
 
         timer.reset();
+    }
+
+    private DcMotor configureMecanumMotor(HardwareMap hardwareMap, String name, boolean reverse) {
+        DcMotor motor = hardwareMap.get(DcMotor.class, name);
+        motor.setDirection(reverse ? DcMotorSimple.Direction.REVERSE : DcMotorSimple.Direction.FORWARD);
+        motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        MotorUtils.clearMotorState(motor);
+        return motor;
+    }
+
+    private MotorFaultDetector createDriveFaultDetector(DcMotor motor, String motorName) {
+        MotorFaultDetector detector = new MotorFaultDetector(motor, "driveTrain", motorName);
+        detector.setPresetThresholds("drivetrain");
+        detector.setEncoderCheckEnabled(!mecanumInstalled || RobotConstants.MECANUM_MOTORS_HAVE_ENCODERS);
+        MotorErrorTracker.getInstance().register(detector);
+        return detector;
+    }
+
+    /** Returns true if the new 4-motor mecanum + odometry drivetrain is enabled. */
+    public boolean isMecanumInstalled() {
+        return mecanumInstalled;
     }
 
     /** Tune ramp speeds (power change per second). */
@@ -84,44 +168,178 @@ public class DriveTrain {
     // ---- Targets (eased) ----
 
     public void setSpeedMultiplier(double multiplier) {
-        speedMultiplier = Math.max(0, multiplier);
+        speedMultiplier = Math.max(0.0, multiplier);
+    }
+
+    public double getSpeedMultiplier() {
+        return speedMultiplier;
     }
 
     public void setLeftPower(double power) {
-        targetLeftPower = clip(power * speedMultiplier);
+        double scaled = clip(power * speedMultiplier);
+        if (mecanumInstalled) {
+            targetFrontLeftPower = scaled;
+            targetBackLeftPower = scaled;
+        } else {
+            targetLeftPower = scaled;
+        }
     }
 
     public void setRightPower(double power) {
-        targetRightPower = clip(power * speedMultiplier);
+        double scaled = clip(power * speedMultiplier);
+        if (mecanumInstalled) {
+            targetFrontRightPower = scaled;
+            targetBackRightPower = scaled;
+        } else {
+            targetRightPower = scaled;
+        }
     }
 
+    /**
+     * Sets tank-style left and right target powers (works in both legacy tank
+     * and mecanum modes so autonomous routines like AutoLeave stay compatible).
+     */
     public void setPowers(double leftPower, double rightPower) {
-        targetLeftPower = clip(leftPower * speedMultiplier);
-        targetRightPower = clip(rightPower * speedMultiplier);
+        double scaledLeft = clip(leftPower * speedMultiplier);
+        double scaledRight = clip(rightPower * speedMultiplier);
+        if (mecanumInstalled) {
+            targetFrontLeftPower = scaledLeft;
+            targetBackLeftPower = scaledLeft;
+            targetFrontRightPower = scaledRight;
+            targetBackRightPower = scaledRight;
+        } else {
+            targetLeftPower = scaledLeft;
+            targetRightPower = scaledRight;
+        }
+    }
+
+    /**
+     * Sets robot-centric mecanum target powers.
+     * <p>
+     * When running in legacy 2-motor mode, falls back to arcade drive
+     * ({@code forward + turn} / {@code forward - turn}).
+     *
+     * @param forward forward velocity (-1.0 to 1.0, positive = forward)
+     * @param strafe  strafe velocity (-1.0 to 1.0, positive = right)
+     * @param turn    rotation velocity (-1.0 to 1.0, positive = clockwise/right)
+     */
+    public void setMecanumPowers(double forward, double strafe, double turn) {
+        if (!mecanumInstalled) {
+            double left = forward + turn;
+            double right = forward - turn;
+            double maxMag = Math.max(1.0, Math.max(Math.abs(left), Math.abs(right)));
+            setPowers(left / maxMag, right / maxMag);
+            return;
+        }
+
+        double fl = forward + strafe + turn;
+        double fr = forward - strafe - turn;
+        double bl = forward - strafe + turn;
+        double br = forward + strafe - turn;
+
+        double maxMagnitude = Math.max(
+                1.0,
+                Math.max(Math.max(Math.abs(fl), Math.abs(fr)), Math.max(Math.abs(bl), Math.abs(br)))
+        );
+
+        targetFrontLeftPower = clip((fl / maxMagnitude) * speedMultiplier);
+        targetFrontRightPower = clip((fr / maxMagnitude) * speedMultiplier);
+        targetBackLeftPower = clip((bl / maxMagnitude) * speedMultiplier);
+        targetBackRightPower = clip((br / maxMagnitude) * speedMultiplier);
     }
 
     /** Eased stop: ramps down to 0 using decelRate, then brakes. */
     public void stop() {
-        targetLeftPower = 0;
-        targetRightPower = 0;
+        targetLeftPower = 0.0;
+        targetRightPower = 0.0;
+        targetFrontLeftPower = 0.0;
+        targetFrontRightPower = 0.0;
+        targetBackLeftPower = 0.0;
+        targetBackRightPower = 0.0;
     }
 
     /** Immediate stop, bypasses easing. Use for emergencies / end of OpMode. */
     public void stopImmediately() {
-        targetLeftPower = targetRightPower = 0;
-        currentLeftPower = currentRightPower = 0;
-        leftDriveMotor.setPower(0);
-        rightDriveMotor.setPower(0);
+        stop();
+        currentLeftPower = 0.0;
+        currentRightPower = 0.0;
+        currentFrontLeftPower = 0.0;
+        currentFrontRightPower = 0.0;
+        currentBackLeftPower = 0.0;
+        currentBackRightPower = 0.0;
+        if (mecanumInstalled) {
+            frontLeftMotor.setPower(0.0);
+            frontRightMotor.setPower(0.0);
+            backLeftMotor.setPower(0.0);
+            backRightMotor.setPower(0.0);
+        } else {
+            leftDriveMotor.setPower(0.0);
+            rightDriveMotor.setPower(0.0);
+        }
     }
 
-    // ---- Sensors ----
+    // ---- Sensors & Pose ----
+
+    public TwoWheelOdometry getOdometry() {
+        return odometry;
+    }
+
+    public void resetOdometry() {
+        if (odometry != null) {
+            odometry.resetPose();
+        }
+    }
+
+    public double getPoseX() {
+        return odometry != null ? odometry.getXInches() : 0.0;
+    }
+
+    public double getPoseY() {
+        return odometry != null ? odometry.getYInches() : 0.0;
+    }
+
+    public double getHeadingDegrees() {
+        return odometry != null ? odometry.getHeadingDegrees() : 0.0;
+    }
+
+    public double getLeftPower() {
+        return mecanumInstalled ? 0.5 * (currentFrontLeftPower + currentBackLeftPower) : currentLeftPower;
+    }
+
+    public double getRightPower() {
+        return mecanumInstalled ? 0.5 * (currentFrontRightPower + currentBackRightPower) : currentRightPower;
+    }
+
+    public double getFrontLeftPower() {
+        return currentFrontLeftPower;
+    }
+
+    public double getFrontRightPower() {
+        return currentFrontRightPower;
+    }
+
+    public double getBackLeftPower() {
+        return currentBackLeftPower;
+    }
+
+    public double getBackRightPower() {
+        return currentBackRightPower;
+    }
 
     public double getLeftSpeed() {
-        return motorUtils.getMotorVelocityTicksPerSec(leftDriveMotor);
+        if (mecanumInstalled) {
+            return 0.5 * (MotorUtils.getMotorVelocityTicksPerSec(frontLeftMotor)
+                    + MotorUtils.getMotorVelocityTicksPerSec(backLeftMotor));
+        }
+        return MotorUtils.getMotorVelocityTicksPerSec(leftDriveMotor);
     }
 
     public double getRightSpeed() {
-        return motorUtils.getMotorVelocityTicksPerSec(rightDriveMotor);
+        if (mecanumInstalled) {
+            return 0.5 * (MotorUtils.getMotorVelocityTicksPerSec(frontRightMotor)
+                    + MotorUtils.getMotorVelocityTicksPerSec(backRightMotor));
+        }
+        return MotorUtils.getMotorVelocityTicksPerSec(rightDriveMotor);
     }
 
     public void getSpeeds(double[] speeds) {
@@ -129,32 +347,61 @@ public class DriveTrain {
         speeds[1] = getRightSpeed();
     }
 
-    /**
-     * Returns whether the left motor has a stall detected.
-     */
+    public double getLastLeftSpeed() {
+        return lastLeftSpeed;
+    }
+
+    public double getLastRightSpeed() {
+        return lastRightSpeed;
+    }
+
     public boolean isLeftStallDetected() {
-        return leftStallDetected;
+        if (mecanumInstalled) {
+            return frontLeftFaultDetector.isStallDetected() || backLeftFaultDetector.isStallDetected();
+        }
+        return leftFaultDetector.isStallDetected();
     }
 
-    /**
-     * Returns whether the right motor has a stall detected.
-     */
     public boolean isRightStallDetected() {
-        return rightStallDetected;
+        if (mecanumInstalled) {
+            return frontRightFaultDetector.isStallDetected() || backRightFaultDetector.isStallDetected();
+        }
+        return rightFaultDetector.isStallDetected();
     }
 
-    /**
-     * Returns whether the left motor has an encoder fault.
-     */
     public boolean isLeftEncoderFault() {
-        return leftEncoderFault;
+        if (mecanumInstalled) {
+            return frontLeftFaultDetector.isEncoderFault() || backLeftFaultDetector.isEncoderFault();
+        }
+        return leftFaultDetector.isEncoderFault();
     }
 
-    /**
-     * Returns whether the right motor has an encoder fault.
-     */
     public boolean isRightEncoderFault() {
-        return rightEncoderFault;
+        if (mecanumInstalled) {
+            return frontRightFaultDetector.isEncoderFault() || backRightFaultDetector.isEncoderFault();
+        }
+        return rightFaultDetector.isEncoderFault();
+    }
+
+    public static final String SUBSYSTEM_KEY = "driveTrain";
+
+    /** Returns true if the drivetrain is currently locked by global or auto E-Stop. */
+    public boolean isEStopped() {
+        return EmergencyStop.getInstance().isSubsystemStopped(SUBSYSTEM_KEY);
+    }
+
+    /** Clears an active Auto E-Stop on the drivetrain and resets drive fault detectors. */
+    public void clearAutoEStop() {
+        EmergencyStop.getInstance().clearSubsystem(SUBSYSTEM_KEY);
+        if (mecanumInstalled) {
+            frontLeftFaultDetector.reset();
+            frontRightFaultDetector.reset();
+            backLeftFaultDetector.reset();
+            backRightFaultDetector.reset();
+        } else {
+            leftFaultDetector.reset();
+            rightFaultDetector.reset();
+        }
     }
 
     // ---- Continuous control ----
@@ -162,97 +409,129 @@ public class DriveTrain {
     /** Call this once per loop from the OpMode. */
     public void update() {
         double now = timer.seconds();
-        double dt = Math.min(now - lastTimeSeconds, MAX_DELTA_TIME);
+        double dt = Math.min(Math.max(0.0, now - lastTimeSeconds), MAX_DELTA_TIME);
         lastTimeSeconds = now;
 
-        currentLeftPower = ramp(currentLeftPower, targetLeftPower, dt);
-        currentRightPower = ramp(currentRightPower, targetRightPower, dt);
+        EmergencyStop eStop = EmergencyStop.getInstance();
+        if (eStop.isSubsystemStopped(SUBSYSTEM_KEY)) {
+            stopImmediately();
+            if (mecanumInstalled && odometry != null) {
+                odometry.update();
+            }
+            reportTelemetry();
+            return;
+        }
 
-        leftDriveMotor.setPower(currentLeftPower);
-        rightDriveMotor.setPower(currentRightPower);
+        if (mecanumInstalled) {
+            currentFrontLeftPower = ramp(currentFrontLeftPower, targetFrontLeftPower, dt);
+            currentFrontRightPower = ramp(currentFrontRightPower, targetFrontRightPower, dt);
+            currentBackLeftPower = ramp(currentBackLeftPower, targetBackLeftPower, dt);
+            currentBackRightPower = ramp(currentBackRightPower, targetBackRightPower, dt);
 
-        // Fault detection
-        checkFaults(System.currentTimeMillis());
+            frontLeftMotor.setPower(currentFrontLeftPower);
+            frontRightMotor.setPower(currentFrontRightPower);
+            backLeftMotor.setPower(currentBackLeftPower);
+            backRightMotor.setPower(currentBackRightPower);
 
-        // Report telemetry
+            double flSpeed = RobotConstants.MECANUM_MOTORS_HAVE_ENCODERS
+                    ? MotorUtils.getMotorVelocityTicksPerSec(frontLeftMotor) : 0.0;
+            double frSpeed = RobotConstants.MECANUM_MOTORS_HAVE_ENCODERS
+                    ? MotorUtils.getMotorVelocityTicksPerSec(frontRightMotor) : 0.0;
+            double blSpeed = RobotConstants.MECANUM_MOTORS_HAVE_ENCODERS
+                    ? MotorUtils.getMotorVelocityTicksPerSec(backLeftMotor) : 0.0;
+            double brSpeed = RobotConstants.MECANUM_MOTORS_HAVE_ENCODERS
+                    ? MotorUtils.getMotorVelocityTicksPerSec(backRightMotor) : 0.0;
+
+            frontLeftFaultDetector.update(currentFrontLeftPower, frontLeftMotor.getCurrentPosition(), flSpeed);
+            frontRightFaultDetector.update(currentFrontRightPower, frontRightMotor.getCurrentPosition(), frSpeed);
+            backLeftFaultDetector.update(currentBackLeftPower, backLeftMotor.getCurrentPosition(), blSpeed);
+            backRightFaultDetector.update(currentBackRightPower, backRightMotor.getCurrentPosition(), brSpeed);
+
+            lastLeftSpeed = 0.5 * (flSpeed + blSpeed);
+            lastRightSpeed = 0.5 * (frSpeed + brSpeed);
+
+            checkDriveAutoEStop(eStop, frontLeftFaultDetector, frontRightFaultDetector,
+                    backLeftFaultDetector, backRightFaultDetector);
+
+            if (odometry != null) {
+                odometry.update();
+            }
+        } else {
+            currentLeftPower = ramp(currentLeftPower, targetLeftPower, dt);
+            currentRightPower = ramp(currentRightPower, targetRightPower, dt);
+
+            leftDriveMotor.setPower(currentLeftPower);
+            rightDriveMotor.setPower(currentRightPower);
+
+            lastLeftSpeed = MotorUtils.getMotorVelocityTicksPerSec(leftDriveMotor);
+            lastRightSpeed = MotorUtils.getMotorVelocityTicksPerSec(rightDriveMotor);
+
+            leftFaultDetector.update(currentLeftPower, leftDriveMotor.getCurrentPosition(), lastLeftSpeed);
+            rightFaultDetector.update(currentRightPower, rightDriveMotor.getCurrentPosition(), lastRightSpeed);
+
+            checkDriveAutoEStop(eStop, leftFaultDetector, rightFaultDetector);
+        }
+
         reportTelemetry();
     }
 
+    private void checkDriveAutoEStop(EmergencyStop eStop, MotorFaultDetector... detectors) {
+        for (MotorFaultDetector detector : detectors) {
+            if (detector == null) continue;
+            boolean trigger = (RobotConstants.AUTO_ESTOP_DRIVETRAIN_ON_OVERCURRENT
+                    && detector.isOvercurrentDetected())
+                    || (RobotConstants.AUTO_ESTOP_DRIVETRAIN_ON_STALL && detector.isStallDetected());
+            if (trigger) {
+                String reason = detector.getName() + " " + detector.getPrimaryError().getShortLabel()
+                        + ": " + detector.getErrorMessage();
+                eStop.triggerSubsystem(SUBSYSTEM_KEY, reason);
+                stopImmediately();
+                return;
+            }
+        }
+    }
+
     private double ramp(double current, double target, double dt) {
-        // Decelerating = target is closer to zero than current, on the same side.
-        // (Reversing direction also counts: we first brake toward 0, then accelerate.)
         boolean decelerating = Math.abs(target) < Math.abs(current)
-                || Math.signum(target) != Math.signum(current) && current != 0;
+                || (Math.signum(target) != Math.signum(current) && current != 0.0);
 
         double maxStep = (decelerating ? decelerationRate : accelerationRate) * dt;
         double error = target - current;
 
-        if (Math.abs(error) <= maxStep) return target;
+        if (Math.abs(error) <= maxStep) {
+            return target;
+        }
         return current + Math.copySign(maxStep, error);
     }
 
-    private double clip(double velocity) {
-        return Math.max(RobotConstants.DRIVETRAIN_OUTPUT_MIN, Math.min(RobotConstants.DRIVETRAIN_OUTPUT_MAX, velocity));
+    private double clip(double power) {
+        return Math.max(
+                RobotConstants.DRIVETRAIN_OUTPUT_MIN,
+                Math.min(RobotConstants.DRIVETRAIN_OUTPUT_MAX, power)
+        );
     }
 
-    /**
-     * Checks for encoder faults and motor stalls on both drive motors.
-     */
-    private void checkFaults(long nowMilliseconds) {
-        // Left motor
-        int leftPosition = leftDriveMotor.getCurrentPosition();
-        if (leftPosition != lastLeftPosition) {
-            lastLeftPosition = leftPosition;
-            lastLeftPositionChangeMilliseconds = nowMilliseconds;
-            leftEncoderFault = false;
-        } else {
-            double leftPower = leftDriveMotor.getPower();
-            if (Math.abs(leftPower) > RobotConstants.DRIVETRAIN_ENCODER_FAULT_POWER_THRESHOLD
-                    && nowMilliseconds - lastLeftPositionChangeMilliseconds
-                            > RobotConstants.DRIVETRAIN_ENCODER_FAULT_TIMEOUT_MS) {
-                leftEncoderFault = true;
-            }
-        }
-
-        // Right motor
-        int rightPosition = rightDriveMotor.getCurrentPosition();
-        if (rightPosition != lastRightPosition) {
-            lastRightPosition = rightPosition;
-            lastRightPositionChangeMilliseconds = nowMilliseconds;
-            rightEncoderFault = false;
-        } else {
-            double rightPower = rightDriveMotor.getPower();
-            if (Math.abs(rightPower) > RobotConstants.DRIVETRAIN_ENCODER_FAULT_POWER_THRESHOLD
-                    && nowMilliseconds - lastRightPositionChangeMilliseconds
-                            > RobotConstants.DRIVETRAIN_ENCODER_FAULT_TIMEOUT_MS) {
-                rightEncoderFault = true;
-            }
-        }
-
-        // Stall detection
-        double leftSpeed = getLeftSpeed();
-        double rightSpeed = getRightSpeed();
-        double leftPower = leftDriveMotor.getPower();
-        double rightPower = rightDriveMotor.getPower();
-
-        leftStallDetected = Math.abs(leftPower) > RobotConstants.DRIVETRAIN_STALL_POWER_THRESHOLD
-                && Math.abs(leftSpeed) < RobotConstants.DRIVETRAIN_STALL_SPEED_THRESHOLD;
-        rightStallDetected = Math.abs(rightPower) > RobotConstants.DRIVETRAIN_STALL_POWER_THRESHOLD
-                && Math.abs(rightSpeed) < RobotConstants.DRIVETRAIN_STALL_SPEED_THRESHOLD;
-    }
-
-    /**
-     * Reports telemetry to TelemetryServer.
-     */
     private void reportTelemetry() {
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "leftPower", currentLeftPower);
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "rightPower", currentRightPower);
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "leftSpeed", getLeftSpeed());
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "rightSpeed", getRightSpeed());
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "speedMultiplier", speedMultiplier);
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "leftStall", leftStallDetected);
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "rightStall", rightStallDetected);
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "leftEncoderFault", leftEncoderFault);
-        TelemetryServer.getInstance().setSubsystemTelemetry("driveTrain", "rightEncoderFault", rightEncoderFault);
+        TelemetryServer server = TelemetryServer.getInstance();
+        server.setSubsystemTelemetry("driveTrain", "mode", mecanumInstalled ? "mecanum+odo" : "tank");
+        server.setSubsystemTelemetry("driveTrain", "speedMultiplier", speedMultiplier);
+
+        if (mecanumInstalled) {
+            server.setSubsystemTelemetry("driveTrain", "frontLeftPower", currentFrontLeftPower);
+            server.setSubsystemTelemetry("driveTrain", "frontRightPower", currentFrontRightPower);
+            server.setSubsystemTelemetry("driveTrain", "backLeftPower", currentBackLeftPower);
+            server.setSubsystemTelemetry("driveTrain", "backRightPower", currentBackRightPower);
+        } else {
+            server.setSubsystemTelemetry("driveTrain", "leftPower", currentLeftPower);
+            server.setSubsystemTelemetry("driveTrain", "rightPower", currentRightPower);
+            server.setSubsystemTelemetry("driveTrain", "leftSpeed", lastLeftSpeed);
+            server.setSubsystemTelemetry("driveTrain", "rightSpeed", lastRightSpeed);
+        }
+
+        server.setSubsystemTelemetry("driveTrain", "leftStall", isLeftStallDetected());
+        server.setSubsystemTelemetry("driveTrain", "rightStall", isRightStallDetected());
+        server.setSubsystemTelemetry("driveTrain", "leftEncoderFault", isLeftEncoderFault());
+        server.setSubsystemTelemetry("driveTrain", "rightEncoderFault", isRightEncoderFault());
+        server.setSubsystemTelemetry("driveTrain", "eStopped", isEStopped());
     }
 }

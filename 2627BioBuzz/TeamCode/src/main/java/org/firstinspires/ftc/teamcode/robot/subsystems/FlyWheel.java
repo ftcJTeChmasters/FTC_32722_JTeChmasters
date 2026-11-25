@@ -1,61 +1,50 @@
 package org.firstinspires.ftc.teamcode.robot.subsystems;
 
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
 import org.firstinspires.ftc.teamcode.config.HardwareNames;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
+import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
+import org.firstinspires.ftc.teamcode.util.EmergencyStop;
+import org.firstinspires.ftc.teamcode.util.MotorErrorTracker;
+import org.firstinspires.ftc.teamcode.util.MotorFaultDetector;
 import org.firstinspires.ftc.teamcode.util.MotorUtils;
 import org.firstinspires.ftc.teamcode.util.PIDController;
-import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 
 /**
- * FlyWheel subsystem with PID velocity control and fault detection.
- * <p>
- * Uses a PID controller to maintain a target velocity. Call {@link #update()}
- * once per loop from the OpMode.
- * <p>
- * Fault detection includes:
- * <ul>
- *   <li>Motor stall (powered but not spinning)</li>
- *   <li>Encoder faults</li>
- *   <li>PID output saturation</li>
- *   <li>Speed error threshold exceeded</li>
- * </ul>
+ * FlyWheel subsystem with PID velocity control and centralized motor fault detection.
  */
 public class FlyWheel {
 
     private final DcMotor flyWheelMotor;
-    private final MotorUtils motorUtils = new MotorUtils();
+    private final MotorFaultDetector faultDetector;
     private final PIDController pid = new PIDController(
             RobotConstants.FLYWHEEL_P,
             RobotConstants.FLYWHEEL_I,
             RobotConstants.FLYWHEEL_D,
             RobotConstants.FLYWHEEL_F
     );
-    private double targetSpeed = RobotConstants.FLYWHEEL_DEFAULT_TARGET_SPEED;
+
+    private volatile double targetSpeed = RobotConstants.FLYWHEEL_DEFAULT_TARGET_SPEED;
     private boolean running = false;
 
-    // Fault detection
-    private long lastPositionChangeMilliseconds = 0;
-    private int lastPosition = 0;
-    private boolean stallDetected = false;
-    private boolean encoderFault = false;
     private boolean pidSaturated = false;
     private boolean speedErrorExceeded = false;
+    private double lastCurrentSpeed = 0.0;
+    private double lastPower = 0.0;
 
     public FlyWheel(HardwareMap hardwareMap) {
         flyWheelMotor = hardwareMap.get(DcMotor.class, HardwareNames.FLY_WHEEL_MOTOR);
-
-        // Clear any stale velocity state from previous OpMode runs
         MotorUtils.clearMotorState(flyWheelMotor);
 
-        // Initialize fault detection
-        lastPosition = flyWheelMotor.getCurrentPosition();
-        lastPositionChangeMilliseconds = System.currentTimeMillis();
+        faultDetector = new MotorFaultDetector(flyWheelMotor, "flyWheel", "flywheel");
+        faultDetector.setPresetThresholds("flywheel");
+        MotorErrorTracker.getInstance().register(faultDetector);
 
-        TelemetryServer.getInstance().setTargetedPidListener((target, p, i, d, f, setpoint) -> {
+        TelemetryServer.getInstance().setTargetedPidListener((target, proportional, integral, derivative, feedforward, setpoint) -> {
             if ("FlyWheel".equals(target)) {
-                pid.setPIDF(p, i, d, f);
+                pid.setPIDF(proportional, integral, derivative, feedforward);
                 if (setpoint != null) {
                     targetSpeed = setpoint;
                 }
@@ -63,15 +52,20 @@ public class FlyWheel {
         });
     }
 
+    public static final String SUBSYSTEM_KEY = "flyWheel";
+
     /**
      * Starts the flywheel at the given target speed.
      *
      * @param targetSpeed target velocity in encoder ticks per second
      */
     public void start(double targetSpeed) {
+        if (EmergencyStop.getInstance().isSubsystemStopped(SUBSYSTEM_KEY)) {
+            return;
+        }
         running = true;
         this.targetSpeed = targetSpeed;
-        pid.reset(); // Reset PID when starting fresh
+        pid.reset();
     }
 
     /** Starts the flywheel at the default target speed from RobotConstants. */
@@ -82,125 +76,156 @@ public class FlyWheel {
     /** Stops the flywheel. */
     public void stop() {
         running = false;
+        lastPower = 0.0;
+        flyWheelMotor.setPower(0.0);
     }
 
-    /** Toggles the flywheel on/off. */
+    /**
+     * Toggles the flywheel on/off.
+     * If an Auto E-Stop is active on the flywheel, the first press clears the
+     * E-Stop latch (keeping the flywheel off) so the driver can safely restart.
+     */
     public void toggle() {
+        EmergencyStop eStop = EmergencyStop.getInstance();
+        if (eStop.isGlobalEStopped()) {
+            return;
+        }
+        if (eStop.isSubsystemAutoEStopped(SUBSYSTEM_KEY)) {
+            clearAutoEStop();
+            return;
+        }
         running = !running;
         if (running) {
             pid.reset();
         }
     }
 
+    /** Clears an active Auto E-Stop on the flywheel and resets its fault detector. */
+    public void clearAutoEStop() {
+        EmergencyStop.getInstance().clearSubsystem(SUBSYSTEM_KEY);
+        faultDetector.reset();
+        running = false;
+        pidSaturated = false;
+        speedErrorExceeded = false;
+        pid.reset();
+    }
+
+    /** Returns true if the flywheel is currently locked by global or auto E-Stop. */
+    public boolean isEStopped() {
+        return EmergencyStop.getInstance().isSubsystemStopped(SUBSYSTEM_KEY);
+    }
+
     /**
      * Call this once per loop from the OpMode.
-     * <p>
-     * Runs the PID velocity control loop when the flywheel is running.
-     * Also performs fault detection.
      */
     public void update() {
-        double currentSpeed = motorUtils.getMotorVelocityTicksPerSec(flyWheelMotor);
-        long now = System.currentTimeMillis();
+        double currentSpeed = MotorUtils.getMotorVelocityTicksPerSec(flyWheelMotor);
+        lastCurrentSpeed = currentSpeed;
+        double currentTarget = targetSpeed;
+
+        EmergencyStop eStop = EmergencyStop.getInstance();
+        if (eStop.isSubsystemStopped(SUBSYSTEM_KEY)) {
+            running = false;
+            lastPower = 0.0;
+            flyWheelMotor.setPower(0.0);
+            pidSaturated = false;
+            speedErrorExceeded = false;
+            pid.reset();
+            faultDetector.update(0.0, flyWheelMotor.getCurrentPosition(), currentSpeed);
+            faultDetector.updatePidStatus(false, false, currentTarget, currentSpeed, 0.0);
+            reportTelemetry(currentSpeed, currentTarget);
+            return;
+        }
 
         if (running) {
-            double power = pid.calculate(targetSpeed, currentSpeed);
+            double power = pid.calculate(currentTarget, currentSpeed);
+            lastPower = power;
             flyWheelMotor.setPower(power);
 
-            // Fault detection
-            checkFaults(now, currentSpeed, power);
-        } else {
-            flyWheelMotor.setPower(0);
-        }
+            faultDetector.update(power, flyWheelMotor.getCurrentPosition(), currentSpeed);
 
-        // Report telemetry
-        reportTelemetry(currentSpeed);
-    }
+            pidSaturated = pid.isSaturated();
+            double allowedError = Math.abs(currentTarget) * RobotConstants.FLYWHEEL_SPEED_ERROR_THRESHOLD_FRACTION;
+            double speedError = Math.abs(currentTarget - currentSpeed);
+            speedErrorExceeded = speedError > allowedError;
 
-    /**
-     * Checks for motor stall, encoder fault, PID saturation, and speed error.
-     */
-    private void checkFaults(long nowMilliseconds, double currentSpeed, double pidOutput) {
-        int currentPosition = flyWheelMotor.getCurrentPosition();
-        double motorPower = flyWheelMotor.getPower();
+            faultDetector.updatePidStatus(true, pidSaturated, currentTarget, currentSpeed, allowedError);
 
-        // Encoder fault: position unchanged while powered
-        if (currentPosition != lastPosition) {
-            lastPosition = currentPosition;
-            lastPositionChangeMilliseconds = nowMilliseconds;
-            encoderFault = false;
-        } else {
-            if (Math.abs(motorPower) > RobotConstants.FLYWHEEL_ENCODER_FAULT_POWER_THRESHOLD
-                    && nowMilliseconds - lastPositionChangeMilliseconds
-                            > RobotConstants.FLYWHEEL_ENCODER_FAULT_TIMEOUT_MS) {
-                encoderFault = true;
-            }
-        }
-
-        // Motor stall: powered but not moving
-        if (Math.abs(motorPower) > RobotConstants.FLYWHEEL_STALL_POWER_THRESHOLD
-                && Math.abs(currentSpeed) < RobotConstants.FLYWHEEL_STALL_SPEED_THRESHOLD) {
-            if (nowMilliseconds - lastPositionChangeMilliseconds
-                    > (long) (RobotConstants.MOTOR_STALL_TIMEOUT_SECONDS * 1000)) {
-                stallDetected = true;
+            if (shouldTriggerAutoEStop()) {
+                String reason = faultDetector.getPrimaryError().getShortLabel()
+                        + ": " + faultDetector.getErrorMessage();
+                eStop.triggerSubsystem(SUBSYSTEM_KEY, reason);
+                running = false;
+                lastPower = 0.0;
+                flyWheelMotor.setPower(0.0);
+                pidSaturated = false;
+                speedErrorExceeded = false;
+                pid.reset();
             }
         } else {
-            stallDetected = false;
+            lastPower = 0.0;
+            flyWheelMotor.setPower(0.0);
+            pidSaturated = false;
+            speedErrorExceeded = false;
+            faultDetector.update(0.0, flyWheelMotor.getCurrentPosition(), currentSpeed);
+            faultDetector.updatePidStatus(false, false, currentTarget, currentSpeed, 0.0);
         }
 
-        // PID saturation
-        pidSaturated = pid.isSaturated();
-
-        // Speed error exceeded threshold
-        double speedError = Math.abs(targetSpeed - currentSpeed);
-        speedErrorExceeded = speedError > (targetSpeed * RobotConstants.FLYWHEEL_SPEED_ERROR_THRESHOLD_FRACTION);
+        reportTelemetry(currentSpeed, currentTarget);
     }
 
-    /**
-     * Reports telemetry to TelemetryServer.
-     */
-    private void reportTelemetry(double currentSpeed) {
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "targetSpeed", targetSpeed);
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "currentSpeed", currentSpeed);
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "running", running);
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "motorPower", flyWheelMotor.getPower());
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "stallDetected", stallDetected);
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "encoderFault", encoderFault);
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "pidSaturated", pidSaturated);
-        TelemetryServer.getInstance().setSubsystemTelemetry("flyWheel", "speedErrorExceeded", speedErrorExceeded);
-        TelemetryServer.getInstance().setPidGraph(targetSpeed, currentSpeed);
+    private boolean shouldTriggerAutoEStop() {
+        if (!RobotConstants.AUTO_ESTOP_FLYWHEEL_ENABLED) {
+            return false;
+        }
+        return (RobotConstants.AUTO_ESTOP_FLYWHEEL_ON_STALL && faultDetector.isStallDetected())
+                || (RobotConstants.AUTO_ESTOP_FLYWHEEL_ON_ENCODER_FAULT && faultDetector.isEncoderFault())
+                || (RobotConstants.AUTO_ESTOP_FLYWHEEL_ON_OVERCURRENT && faultDetector.isOvercurrentDetected());
     }
 
-    /** Returns the current flywheel speed in encoder ticks per second. */
+    private void reportTelemetry(double currentSpeed, double currentTarget) {
+        TelemetryServer server = TelemetryServer.getInstance();
+        server.setSubsystemTelemetry("flyWheel", "targetSpeed", currentTarget);
+        server.setSubsystemTelemetry("flyWheel", "currentSpeed", currentSpeed);
+        server.setSubsystemTelemetry("flyWheel", "running", running);
+        server.setSubsystemTelemetry("flyWheel", "motorPower", lastPower);
+        server.setSubsystemTelemetry("flyWheel", "stallDetected", isStallDetected());
+        server.setSubsystemTelemetry("flyWheel", "encoderFault", isEncoderFault());
+        server.setSubsystemTelemetry("flyWheel", "pidSaturated", pidSaturated);
+        server.setSubsystemTelemetry("flyWheel", "speedErrorExceeded", speedErrorExceeded);
+        server.setSubsystemTelemetry("flyWheel", "error", faultDetector.getPrimaryError().name());
+        server.setSubsystemTelemetry("flyWheel", "eStopped", isEStopped());
+        server.setPidGraph(currentTarget, currentSpeed);
+    }
+
     public double getCurrentSpeed() {
-        return motorUtils.getMotorVelocityTicksPerSec(flyWheelMotor);
+        return lastCurrentSpeed;
     }
 
-    /** Returns the current target speed in encoder ticks per second. */
     public double getTargetSpeed() {
         return targetSpeed;
     }
 
-    /** Returns whether the flywheel is currently running. */
+    public double getMotorPower() {
+        return lastPower;
+    }
+
     public boolean isRunning() {
         return running;
     }
 
-    /** Returns whether a motor stall has been detected. */
     public boolean isStallDetected() {
-        return stallDetected;
+        return faultDetector.isStallDetected();
     }
 
-    /** Returns whether an encoder fault has been detected. */
     public boolean isEncoderFault() {
-        return encoderFault;
+        return faultDetector.isEncoderFault();
     }
 
-    /** Returns whether the PID output is saturated. */
     public boolean isPidSaturated() {
         return pidSaturated;
     }
 
-    /** Returns whether the speed error exceeds the threshold. */
     public boolean isSpeedErrorExceeded() {
         return speedErrorExceeded;
     }

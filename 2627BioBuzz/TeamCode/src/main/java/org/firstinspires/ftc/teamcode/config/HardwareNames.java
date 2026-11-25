@@ -14,12 +14,38 @@ public final class HardwareNames {
     /** Intake motor — DcMotor, Extension Hub, Port 0 */
     public static final String INTAKE_MOTOR = "IntakeMotor";
 
-    /** Left drive motor — DcMotor, Control Hub, Port 0 */
+    /** Legacy left drive motor — DcMotor, Control Hub, Port 0 */
     public static final String LEFT_DRIVE_MOTOR = "LeftDriveMotor";
 
-    /** Right drive motor — DcMotor, Control Hub, Port 1 */
+    /** Legacy right drive motor — DcMotor, Control Hub, Port 1 */
     public static final String RIGHT_DRIVE_MOTOR = "RightDriveMotor";
 
     /** Flywheel motor — DcMotor, Extension Hub, Port 1 */
     public static final String FLY_WHEEL_MOTOR = "FlyWheelMotor";
-} 
+
+    // =========================================================================
+    // Mecanum Drive + 2-Wheel Odometry Hardware Names
+    // (Used when RobotConstants.MECANUM_ODO_INSTALLED is true)
+    // =========================================================================
+
+    /** Mecanum front-left drive motor */
+    public static final String FRONT_LEFT_DRIVE_MOTOR = "FrontLeftDriveMotor";
+
+    /** Mecanum front-right drive motor */
+    public static final String FRONT_RIGHT_DRIVE_MOTOR = "FrontRightDriveMotor";
+
+    /** Mecanum back-left drive motor */
+    public static final String BACK_LEFT_DRIVE_MOTOR = "BackLeftDriveMotor";
+
+    /** Mecanum back-right drive motor */
+    public static final String BACK_RIGHT_DRIVE_MOTOR = "BackRightDriveMotor";
+
+    /** Forward (X-axis) dead-wheel odometry encoder pod */
+    public static final String ODOMETRY_FORWARD_POD = "OdoForward";
+
+    /** Strafe (Y-axis) dead-wheel odometry encoder pod */
+    public static final String ODOMETRY_STRAFE_POD = "OdoStrafe";
+
+    /** Control Hub built-in IMU */
+    public static final String IMU = "imu";
+}

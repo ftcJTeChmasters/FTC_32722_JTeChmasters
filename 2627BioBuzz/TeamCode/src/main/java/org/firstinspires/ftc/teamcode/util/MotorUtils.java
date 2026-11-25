@@ -3,8 +3,10 @@ package org.firstinspires.ftc.teamcode.util;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-import java.util.HashMap;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
+
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Utility class for motor-related calculations.
@@ -19,17 +21,19 @@ public class MotorUtils {
     private static class MotorVelocityData {
         int lastPosition = 0;
         long lastTimeNanoseconds = 0;
+        float lastVelocity = 0f;
     }
 
     /** Map from motor identity hash to its velocity state. */
-    private static final Map<Integer, MotorVelocityData> motorStates = new HashMap<>();
+    private static final Map<Integer, MotorVelocityData> motorStates = new ConcurrentHashMap<>();
 
     /**
      * Gets the motor velocity in encoder ticks per second.
      * <p>
      * For {@link DcMotorEx} instances, uses the built-in velocity estimator.
      * For regular {@link DcMotor} instances, computes velocity from position
-     * deltas using per-motor state tracking.
+     * deltas using per-motor state tracking, caching recent samples across
+     * sub-millisecond repeated calls in the same loop.
      *
      * @param motor the motor to query
      * @return velocity in ticks per second, or 0 if motor is null
@@ -44,7 +48,7 @@ public class MotorUtils {
         }
 
         int motorKey = System.identityHashCode(motor);
-        MotorVelocityData state = motorStates.computeIfAbsent(motorKey, k -> new MotorVelocityData());
+        MotorVelocityData state = motorStates.computeIfAbsent(motorKey, key -> new MotorVelocityData());
 
         int currentPosition = motor.getCurrentPosition();
         long now = System.nanoTime();
@@ -52,20 +56,23 @@ public class MotorUtils {
         if (state.lastTimeNanoseconds == 0) {
             state.lastPosition = currentPosition;
             state.lastTimeNanoseconds = now;
+            state.lastVelocity = 0f;
             return 0f;
         }
 
-        double dt = (now - state.lastTimeNanoseconds) / 1e9;
-        if (dt <= 0) {
-            return 0f;
+        long dtNanoseconds = now - state.lastTimeNanoseconds;
+        if (dtNanoseconds < RobotConstants.VELOCITY_MIN_SAMPLE_NANOSECONDS) {
+            return state.lastVelocity;
         }
 
-        double velocity = (currentPosition - state.lastPosition) / dt;
+        double dtSeconds = dtNanoseconds / 1e9;
+        double velocity = (currentPosition - state.lastPosition) / dtSeconds;
 
         state.lastPosition = currentPosition;
         state.lastTimeNanoseconds = now;
+        state.lastVelocity = (float) velocity;
 
-        return (float) velocity;
+        return state.lastVelocity;
     }
 
     /**
