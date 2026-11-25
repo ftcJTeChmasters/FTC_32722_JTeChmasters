@@ -10,6 +10,16 @@ package org.firstinspires.ftc.teamcode.config;
 public class RobotConstants {
 
     // =========================================================================
+    // Telemetry / Dashboard
+    // =========================================================================
+
+    /** Master switch to disable ALL telemetry streaming (TelemetryServer, dashboard, etc.). */
+    public static final boolean DISABLE_TELEMETRY = false;
+
+    /** Telemetry server port. */
+    public static final int TELEMETRY_SERVER_PORT = 8000;
+
+    // =========================================================================
     // Gamepad Constants
     // =========================================================================
 
@@ -43,16 +53,16 @@ public class RobotConstants {
     public static final double FLYWHEEL_DEFAULT_TARGET_SPEED = 200.0;
 
     /** FlyWheel PID proportional gain. */
-    public static final double FLYWHEEL_P = 0.0;
+    public static final double FLYWHEEL_P = 0.0002;
 
     /** FlyWheel PID integral gain. */
-    public static final double FLYWHEEL_I = 0.0;
+    public static final double FLYWHEEL_I = 0.00002;
 
     /** FlyWheel PID derivative gain. */
-    public static final double FLYWHEEL_D = 0.0;
+    public static final double FLYWHEEL_D = 0.00002;
 
-    /** FlyWheel PID feedforward gain. */
-    public static final double FLYWHEEL_F = 0.0;
+    /** FlyWheel PID feedforward gain. (1 / Max Speed Motor, No Load) */
+    public static final double FLYWHEEL_F = 0.0020;
 
     // =========================================================================
     // Intake Constants

@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.robot.debug;
 
 import org.json.JSONObject;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -66,8 +67,10 @@ public class TelemetryServer {
      * no server is hosted, no data is sent or received, no network is used,
      * setters do nothing, and no errors are thrown. Internal calls still
      * return their normal values.
+     * <p>
+     * Controlled by {@link RobotConstants#DISABLE_TELEMETRY}.
      */
-    public static boolean DISABLE_TELEMETRY = false;
+    public static boolean DISABLE_TELEMETRY = RobotConstants.DISABLE_TELEMETRY;
 
     private static final TelemetryServer INSTANCE = new TelemetryServer();
 
