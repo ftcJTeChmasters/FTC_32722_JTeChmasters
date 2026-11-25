@@ -1,47 +1,42 @@
-# Controller Map — FTC 32722 BioBuzz
+# Controller Controls — FTC 32722 BioBuzz
 
-![PlayStation Controller Layout](doc/media/controller.svg)
+![PlayStation Controller Reference](doc/media/controller.svg)
 
-Controls implemented in [`DriverControlled.java`](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/teleop/DriverControlled.java) and [`RobotMonitor.java`](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/robot/debug/RobotMonitor.java).
-
-> **How to edit this diagram & table easily:**
-> 1. Edit any button's title, subtitle, category color, or notes in [`doc/controller-map.json`](doc/controller-map.json).
-> 2. Run `python doc/generate_controller.py` to regenerate both [`doc/media/controller.svg`](doc/media/controller.svg) and this `CONTROLLER.md`.
+> Edit this file directly whenever you change button bindings in [`DriverControlled.java`](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/teleop/DriverControlled.java).
+> Numbers **1–13** match the labels on the PlayStation controller diagram above.
 
 ---
 
-## PlayStation Button Reference
+## Button Mapping
 
-| PlayStation Control | FTC SDK Field | Action | Notes |
-| --- | --- | --- | --- |
-| **L2 Trigger** | `gamepad.left_trigger` | Global Emergency Stop (with R2) | Pull both L2 + R2 >85% for 150 ms (gamepad1 or gamepad2, all OpModes) |
-| **R2 Trigger** | `gamepad.right_trigger` | Global Emergency Stop (with L2) | Latches all subsystems to 0 power until SHARE is held 0.5 s |
-| **L1 Bumper** | `gamepad.left_bumper` | Slow Drive Speed (50%) | Sets speedMultiplier = RobotConstants.SLOW_SPEED_MULTIPLIER |
-| **R1 Bumper** | `gamepad.right_bumper` | Fast Drive Speed (100%) | Sets speedMultiplier = RobotConstants.FAST_SPEED_MULTIPLIER |
-| **SHARE / CREATE** | `gamepad.back` | Clear / Reset All E-Stops | Hold for 500 ms on gamepad1 or gamepad2 to release E-Stop latches |
-| **OPTIONS** | `gamepad.start` | Reserved by FTC Driver Station | OPTIONS + Cross/Circle binds Gamepad 1 / Gamepad 2 |
-| **Left Stick (L3 axis)** | `left_stick_x / left_stick_y` | Mecanum: Forward/Strafe &#124; Tank: Left Drive | 5% deadzone applied (RobotConstants.GAMEPAD_DEADZONE) |
-| **Right Stick (R3 axis)** | `right_stick_x / right_stick_y` | Mecanum: Turn (X) &#124; Tank: Right Drive (Y) | 5% deadzone applied (RobotConstants.GAMEPAD_DEADZONE) |
-| **D-Pad (Up/Down/Left/Right)** | `gamepad.dpad_*` | Unassigned | Edit doc/controller-map.json when assigned |
-| **△ Triangle** | `gamepad.y` | Intake Reverse (Jam Clear) | Runs a 200 ms reverse pulse via intake.triggerReverse() |
-| **○ Circle** | `gamepad.b` | Reset Odometry Pose to (0, 0, 0°) | Active when RobotConstants.MECANUM_ODO_INSTALLED is true |
-| **✕ Cross** | `gamepad.a` | Toggle FlyWheel On / Off | If FlyWheel Auto E-Stop is active, 1st press clears latch safely |
-| **□ Square** | `gamepad.x` | Toggle Intake Enabled / Disabled | If Intake Auto E-Stop is active, 1st press clears latch safely |
-
----
-
-## Emergency Stop & Auto E-Stop Details
-
-- **Global E-Stop (`L2 + R2`)**: Pull both triggers past `85%` for `150 ms` on `gamepad1` or `gamepad2` (active in **all** OpModes). Cuts power to DriveTrain, FlyWheel, and Intake and latches until cleared.
-- **Clear E-Stops (`SHARE`)**: Hold `SHARE` (`gamepad.back`) for `500 ms` on either gamepad to release global and subsystem E-Stop latches.
-- **FlyWheel Auto E-Stop**: Locks FlyWheel on `STALLED`, `ENCODER_FAULT`, or `OVERCURRENT`. Press **`✕` Cross** once to clear the latch safely (stays off), then press **`✕`** again to restart.
-- **Intake Auto E-Stop**: Locks Intake if jam recovery (`REVERSE` → `SUPER`) fails, or on `ENCODER_FAULT` / `OVERCURRENT`. Press **`□` Square** once to clear the latch safely (stays off), then press **`□`** again to re-enable.
-- **DriveTrain Auto E-Stop**: Locks DriveTrain on sustained `OVERCURRENT` (`AUTO_ESTOP_DRIVETRAIN_ON_OVERCURRENT = true` in [`RobotConstants.java`](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/config/RobotConstants.java)). Hold **`SHARE`** for `0.5 s` to clear.
+| # | PlayStation Button | FTC SDK Field | Function | Notes |
+| :-: | --- | --- | --- | --- |
+| **1** | **L2 Trigger** | `gamepad.left_trigger` | **Global Emergency Stop** *(with R2)* | Pull **L2 + R2** > 85% for 150 ms (`gamepad1` or `gamepad2`, all OpModes) |
+| **2** | **L1 Bumper** | `gamepad.left_bumper` | **Slow Speed (50%)** | Sets drive speed multiplier to `0.5` |
+| **3** | **D-Pad** | `gamepad.dpad_*` | *Unassigned* | — |
+| **4** | **Left Stick (`L3`)** | `left_stick_x / y` | **Mecanum:** Forward/Back (`Y`) + Strafe (`X`)<br>**Tank (legacy):** Left drive (`Y`) | 5% deadzone (`GAMEPAD_DEADZONE`) |
+| **5** | **SHARE** | `gamepad.back` | **Clear / Reset All E-Stops** | Hold for `0.5 s` on `gamepad1` or `gamepad2` |
+| **6** | **OPTIONS** | `gamepad.start` | *Reserved by FTC Driver Station* | `OPTIONS + ✕` / `OPTIONS + ○` assigns Gamepad 1 / 2 |
+| **7** | **R2 Trigger** | `gamepad.right_trigger` | **Global Emergency Stop** *(with L2)* | Latches all motors to `0` until **SHARE** is held `0.5 s` |
+| **8** | **R1 Bumper** | `gamepad.right_bumper` | **Fast Speed (100%)** | Sets drive speed multiplier to `1.0` |
+| **9** | **△ Triangle** | `gamepad.y` | **Intake Reverse** | Runs a `200 ms` reverse pulse to clear jams |
+| **10** | **○ Circle** | `gamepad.b` | **Reset Odometry Pose** | Sets `(X, Y, Heading)` to `(0, 0, 0°)` in Mecanum+Odo mode |
+| **11** | **✕ Cross** | `gamepad.a` | **Toggle FlyWheel** | If FlyWheel Auto E-Stop is active, 1st press clears the latch safely |
+| **12** | **□ Square** | `gamepad.x` | **Toggle Intake** | If Intake Auto E-Stop is active, 1st press clears the latch safely |
+| **13** | **Right Stick (`R3`)** | `right_stick_x / y` | **Mecanum:** Turn Left/Right (`X`)<br>**Tank (legacy):** Right drive (`Y`) | 5% deadzone (`GAMEPAD_DEADZONE`) |
 
 ---
 
-## Drive Mode Switch (`MECANUM_ODO_INSTALLED`)
+## Automatic Subsystem E-Stops
+
+- **FlyWheel**: Auto E-Stops on `STALLED`, `ENCODER_FAULT`, or `OVERCURRENT`. Press **`✕` Cross** once to clear (stays off), then press **`✕`** again to spin up.
+- **Intake**: Auto E-Stops if automatic jam recovery (`REVERSE` → `SUPER`) fails, or on `ENCODER_FAULT` / `OVERCURRENT`. Press **`□` Square** once to clear (stays off), then press **`□`** again to enable.
+- **DriveTrain**: Auto E-Stops on sustained `OVERCURRENT` (`AUTO_ESTOP_DRIVETRAIN_ON_OVERCURRENT = true` in [`RobotConstants.java`](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/config/RobotConstants.java)). Hold **`SHARE`** for `0.5 s` to clear.
+
+---
+
+## Drive Mode (`MECANUM_ODO_INSTALLED`)
 
 Configured in [`RobotConstants.java`](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/config/RobotConstants.java):
-- `MECANUM_ODO_INSTALLED = true`: Left Stick = Forward/Backward (`Y`) + Strafe (`X`), Right Stick = Turn (`X`), **`○` Circle** = Reset Odometry Pose `(0, 0, 0°)`.
-- `MECANUM_ODO_INSTALLED = false`: Legacy Tank Drive (Left Stick `Y` = Left motors, Right Stick `Y` = Right motors).
+- `false` *(current default)*: Legacy 2-motor Tank drive (`Left Stick Y` = left, `Right Stick Y` = right).
+- `true`: 4-motor Mecanum drive + 2-pod Odometry (`Left Stick` = move/strafe, `Right Stick X` = turn, `○ Circle` = reset pose).
