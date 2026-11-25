@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.robot;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
+import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
 import org.firstinspires.ftc.teamcode.robot.subsystems.DriveTrain;
 import org.firstinspires.ftc.teamcode.robot.subsystems.FlyWheel;
 import org.firstinspires.ftc.teamcode.robot.subsystems.Intake;
@@ -8,10 +10,15 @@ import org.firstinspires.ftc.teamcode.robot.subsystems.Intake;
 /**
  * Central access point for every robot subsystem.
  *
- * Generated and maintained by FTC Code Utils.
+ * Generated and maintained by FTC Code Utils. Starts TelemetryServer on
+ * port 8000 and automatically publishes battery/gamepad state for the
+ * Live Telemetry & Robot Debugger dashboard.
  */
 public class RobotHardware {
+    private static final int TELEMETRY_SERVER_PORT = 8000;
+
     private final LinearOpMode opMode;
+    private VoltageSensor voltageSensor;
 
     public DriveTrain driveTrain;
     public FlyWheel flyWheel;
@@ -25,11 +32,26 @@ public class RobotHardware {
         driveTrain = new DriveTrain(opMode.hardwareMap);
         flyWheel = new FlyWheel(opMode.hardwareMap);
         intake = new Intake(opMode.hardwareMap);
+
+        TelemetryServer.getInstance().start(TELEMETRY_SERVER_PORT);
+        TelemetryServer.getInstance().setOpModeName(opMode.getClass().getSimpleName());
+
+        for (VoltageSensor sensor : opMode.hardwareMap.voltageSensor) {
+            voltageSensor = sensor;
+            break;
+        }
     }
 
     public void updateAll() {
         driveTrain.update();
         flyWheel.update();
         intake.update();
+
+        if (voltageSensor != null) {
+            TelemetryServer.getInstance().setBatteryVoltage(voltageSensor.getVoltage());
+        }
+        TelemetryServer.getInstance().setRuntimeSeconds(opMode.getRuntime());
+        TelemetryServer.getInstance().setGamepadState("gamepad1", opMode.gamepad1);
+        TelemetryServer.getInstance().setGamepadState("gamepad2", opMode.gamepad2);
     }
 }
