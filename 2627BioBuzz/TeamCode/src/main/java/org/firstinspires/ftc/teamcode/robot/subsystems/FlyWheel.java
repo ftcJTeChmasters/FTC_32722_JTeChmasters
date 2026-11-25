@@ -34,6 +34,8 @@ public class FlyWheel {
     private double lastCurrentSpeed = 0.0;
     private double lastPower = 0.0;
 
+    public static final String SUBSYSTEM_KEY = "flyWheel";
+
     public FlyWheel(HardwareMap hardwareMap) {
         flyWheelMotor = hardwareMap.get(DcMotor.class, HardwareNames.FLY_WHEEL_MOTOR);
         MotorUtils.clearMotorState(flyWheelMotor);
@@ -43,7 +45,7 @@ public class FlyWheel {
         MotorErrorTracker.getInstance().register(faultDetector);
 
         TelemetryServer.getInstance().setTargetedPidListener((target, proportional, integral, derivative, feedforward, setpoint) -> {
-            if ("FlyWheel".equals(target)) {
+            if ("SUBSYSTEM_KEY".equals(target)) {
                 pid.setPIDF(proportional, integral, derivative, feedforward);
                 if (setpoint != null) {
                     targetSpeed = setpoint;
@@ -51,8 +53,6 @@ public class FlyWheel {
             }
         });
     }
-
-    public static final String SUBSYSTEM_KEY = "flyWheel";
 
     /**
      * Starts the flywheel at the given target speed.
