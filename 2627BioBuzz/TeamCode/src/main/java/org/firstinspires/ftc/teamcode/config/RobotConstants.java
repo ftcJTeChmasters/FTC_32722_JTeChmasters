@@ -358,6 +358,39 @@ public class RobotConstants {
     public static final double PID_DEFAULT_OUTPUT_MAX = 1.0;
 
     // =========================================================================
+    // Aimer / Color Sensor Constants
+    // =========================================================================
+
+    /** Aimer servo position for large balls (blue/red) - range 0.0 to 1.0. */
+    public static final double AIMER_POSITION_LARGE_BALLS = 0.3;
+
+    /** Aimer servo position for small balls (yellow) - range 0.0 to 1.0. */
+    public static final double AIMER_POSITION_SMALL_BALLS = 0.7;
+
+    /** Color sensor HSV hue range for BLUE balls (large) - approximate center 210. */
+    public static final int COLOR_BLUE_HUE_MIN = 180;
+    public static final int COLOR_BLUE_HUE_MAX = 240;
+
+    /** Color sensor HSV hue range for RED balls (large) - wraps around 0/360. */
+    public static final int COLOR_RED_HUE_MIN_1 = 0;
+    public static final int COLOR_RED_HUE_MAX_1 = 20;
+    public static final int COLOR_RED_HUE_MIN_2 = 340;
+    public static final int COLOR_RED_HUE_MAX_2 = 360;
+
+    /** Color sensor HSV hue range for YELLOW balls (small) - approximate center 60. */
+    public static final int COLOR_YELLOW_HUE_MIN = 40;
+    public static final int COLOR_YELLOW_HUE_MAX = 80;
+
+    /** Minimum color sensor saturation to consider a valid color reading. */
+    public static final double COLOR_MIN_SATURATION = 0.2;
+
+    /** Minimum color sensor value (brightness) to consider a valid color reading. */
+    public static final double COLOR_MIN_VALUE = 0.2;
+
+    /** Team color: true = BLUE alliance, false = RED alliance. Set via gamepad, not code. */
+    public static boolean TEAM_COLOR_BLUE = true;
+
+    // =========================================================================
     // Emergency Stop (E-Stop) & Auto E-Stop Constants
     // =========================================================================
 

@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
 import org.firstinspires.ftc.teamcode.robot.RobotHardware;
+import org.firstinspires.ftc.teamcode.robot.subsystems.Aimer;
 import org.firstinspires.ftc.teamcode.util.EmergencyStop;
 import org.firstinspires.ftc.teamcode.util.MotorErrorTracker;
 import org.firstinspires.ftc.teamcode.util.MotorUtils;
@@ -58,7 +59,8 @@ public class RobotMonitor {
                 lastBatteryVoltage,
                 robot.driveTrain,
                 robot.flyWheel,
-                robot.intake
+                robot.intake,
+                robot.aimer
         );
     }
 
@@ -82,7 +84,8 @@ public class RobotMonitor {
                     lastBatteryVoltage,
                     robot.driveTrain,
                     robot.flyWheel,
-                    robot.intake
+                    robot.intake,
+                    robot.aimer
             );
         }
     }
@@ -170,7 +173,8 @@ public class RobotMonitor {
                     lastBatteryVoltage,
                     robot.driveTrain,
                     robot.flyWheel,
-                    robot.intake
+                    robot.intake,
+                    robot.aimer
             );
         }
     }

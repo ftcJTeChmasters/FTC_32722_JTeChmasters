@@ -48,4 +48,14 @@ public final class HardwareNames {
 
     /** Control Hub built-in IMU */
     public static final String IMU = "imu";
+
+    // =========================================================================
+    // Aimer / Color Sensor Hardware Names
+    // =========================================================================
+
+    /** Aimer servo - positions the aimer for large vs small balls */
+    public static final String AIMER_SERVO = "AimerServo";
+
+    /** Color sensor - detects ball color (blue/red=large, yellow=small) before flywheel */
+    public static final String COLOR_SENSOR = "ColorSensor";
 }

@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.robot.debug;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.robot.odometry.TwoWheelOdometry;
+import org.firstinspires.ftc.teamcode.robot.subsystems.Aimer;
 import org.firstinspires.ftc.teamcode.robot.subsystems.DriveTrain;
 import org.firstinspires.ftc.teamcode.robot.subsystems.FlyWheel;
 import org.firstinspires.ftc.teamcode.robot.subsystems.Intake;
@@ -83,23 +84,14 @@ public class DriverStationTelemetry {
             double batteryVoltage,
             DriveTrain driveTrain,
             FlyWheel flyWheel,
-            Intake intake
+            Intake intake,
+            Aimer aimer
     ) {
         // 0. Emergency Stop Banner (highest visibility when active)
         renderEmergencyStops();
 
-        // 1. Header bar
+        // 1. Sketch-style info panel
         String stateColor = getStateColor(robotState);
-        telemetry.addLine(String.format(
-                Locale.US,
-                "<b><font color=\"%s\">BioBuzz 32722</font></b>  |  <b>%s</b>  |  <font color=\"%s\"><b>%s</b></font>",
-                COLOR_BRAND,
-                escapeHtml(opModeName),
-                stateColor,
-                escapeHtml(robotState)
-        ));
-
-        // 2. Battery, runtime & drivetrain mode bar
         String batteryColor = getBatteryColor(batteryVoltage);
         String batteryText = batteryVoltage > 0
                 ? String.format(Locale.US, "%.2fV", batteryVoltage)
@@ -107,38 +99,56 @@ public class DriverStationTelemetry {
         String driveModeLabel = (driveTrain != null && driveTrain.isMecanumInstalled())
                 ? "Mecanum+Odo"
                 : "Tank (Legacy)";
-
+        telemetry.addLine("<pre style=\"font-family:monospace; font-size:11px; line-height:1.15;\">"
+                + "+--------------------------------------+");
         telemetry.addLine(String.format(
                 Locale.US,
-                "Bat: <font color=\"%s\"><b>%s</b></font>  |  Time: <b>%s</b>  |  Drive: <b>%s</b>",
+                "| <font color=\"%s\"><b>INFO ROBOT</b></font>                            |",
+                COLOR_MUTED
+        ));
+        telemetry.addLine(String.format(
+                Locale.US,
+                "| <font color=\"%s\"><b>BioBuzz 32722</b></font>  %s  |",
+                COLOR_BRAND,
+                escapeHtml(opModeName)
+        ));
+        telemetry.addLine(String.format(
+                Locale.US,
+                "| State: <font color=\"%s\"><b>%s</b></font>  Bat: <font color=\"%s\"><b>%s</b></font>  Time: <b>%s</b>",
+                stateColor,
+                escapeHtml(robotState),
                 batteryColor,
                 batteryText,
-                formatRuntime(runtimeSeconds),
+                formatRuntime(runtimeSeconds)
+        ));
+        telemetry.addLine(String.format(
+                Locale.US,
+                "| Drive: <b>%s</b>",
                 driveModeLabel
         ));
-
         if (!currentTask.isEmpty()) {
             telemetry.addLine(String.format(
                     Locale.US,
-                    "<font color=\"%s\">Task:</font> <b>%s</b>",
+                    "| <font color=\"%s\">Task:</font> <b>%s</b>",
                     COLOR_MUTED,
                     escapeHtml(currentTask)
             ));
         }
+        telemetry.addLine("+--------------------------------------+</pre>");
 
-        // 3. Motor Errors banner
+        // 2. Motor Errors banner
         renderMotorErrors();
 
-        // 4. DriveTrain & Odometry
+        // 3. Robot sketch
+        renderRobotDiagram(driveTrain, flyWheel, intake, aimer);
+
+        // 4. Compact subsystem status
         renderDriveTrain(driveTrain);
-
-        // 5. FlyWheel
         renderFlyWheel(flyWheel);
-
-        // 6. Intake
         renderIntake(intake);
+        renderAimer(aimer);
 
-        // 7. OpMode-specific extras
+        // 9. OpMode-specific extras
         if (!extras.isEmpty()) {
             StringBuilder extraLine = new StringBuilder();
             extraLine.append("<b><font color=\"").append(COLOR_WARN).append("\">▸ Info</font></b>");
@@ -164,7 +174,7 @@ public class DriverStationTelemetry {
         if (eStop.isGlobalEStopped()) {
             telemetry.addLine(String.format(
                     Locale.US,
-                    "<font color=\"%s\"><b>🛑 GLOBAL E-STOP ACTIVE:</b> %s</font>",
+                    "<font color=\"%s\"><b> ▒████ GLOBAL E-STOP ████▒:</b> %s</font>",
                     COLOR_ERROR,
                     escapeHtml(eStop.getGlobalReason())
             ));
@@ -174,7 +184,7 @@ public class DriverStationTelemetry {
         for (Map.Entry<String, String> entry : subsystemStops.entrySet()) {
             telemetry.addLine(String.format(
                     Locale.US,
-                    "<font color=\"%s\"><b>⛔ AUTO E-STOP [%s]:</b></font> %s",
+                    "<font color=\"%s\"><b> ▒████ AUTO E-STOP ████▒ [%s]:</b></font> %s",
                     COLOR_ERROR,
                     escapeHtml(entry.getKey()),
                     escapeHtml(entry.getValue())
@@ -217,7 +227,7 @@ public class DriverStationTelemetry {
         String headerColor = tracker.hasCriticalError() ? COLOR_ERROR : COLOR_WARN;
         telemetry.addLine(String.format(
                 Locale.US,
-                "<font color=\"%s\"><b>⚠ MOTOR ALERTS (%d active, %d total)</b></font>",
+                "<font color=\"%s\"><b> MOTOR ALERTS (%d active, %d total)</b></font>",
                 headerColor,
                 activeErrors.size(),
                 tracker.getTotalFaultCount()
@@ -367,5 +377,191 @@ public class DriverStationTelemetry {
         return text.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
+    }
+
+    /**
+     * Renders a visual robot diagram with top-down and side views.
+     * Shows wheel spin state, intake state, flywheel state, and aimer position.
+     */
+    private void renderRobotDiagram(DriveTrain driveTrain, FlyWheel flyWheel, Intake intake, Aimer aimer) {
+        if (driveTrain == null) return;
+
+        telemetry.addLine(String.format(
+                Locale.US,
+                "<pre style=\"font-family:monospace; font-size:10px; line-height:1.05;\">%s</pre>",
+                buildPortraitTopDownView(driveTrain, intake, aimer)
+        ));
+        telemetry.addLine(String.format(
+                Locale.US,
+                "<pre style=\"font-family:monospace; font-size:10px; line-height:1.05;\">%s</pre>",
+                buildPortraitSideView(driveTrain, flyWheel, intake, aimer)
+        ));
+    }
+
+    private String buildPortraitTopDownView(DriveTrain driveTrain, Intake intake, Aimer aimer) {
+        String intakeColor = intake != null && intake.enabled ? COLOR_OK : COLOR_MUTED;
+        String intakeState = intake != null && intake.enabled ? ">" : "-";
+        String aimerColor = aimer != null
+                ? (aimer.isAtLargeBallPosition() ? COLOR_BRAND : "#FB923C")
+                : COLOR_MUTED;
+
+        String leftPower = getWheelIndicator(driveTrain.getLeftPower());
+        String rightPower = getWheelIndicator(driveTrain.getRightPower());
+        StringBuilder view = new StringBuilder();
+        view.append("<font color=\"#64748B\"><b>TOP-DOWN</b></font>\n");
+        view.append("<font color=\"#FACC15\"><b>▓▓</b></font> ").append(leftPower)
+                .append(" <font color=\"#94A3B8\">──────</font> ").append(rightPower)
+                .append(" <font color=\"#FACC15\"><b>▓▓</b></font>\n");
+        view.append("┌────────────────┐\n");
+        view.append(String.format("│ <font color=\"%s\"><b>%s</b></font> Intake",
+                intakeColor, intakeState));
+        view.append(String.format("  <font color=\"%s\"><b>●</b></font> Aimer │\n", aimerColor));
+        view.append("│                │\n");
+        view.append("└────────────────┘\n");
+        view.append("<font color=\"#FACC15\"><b>▓▓</b></font> ○ <font color=\"#94A3B8\">──────</font> ○ <font color=\"#FACC15\"><b>▓▓</b></font>");
+        return view.toString();
+    }
+
+    private String buildPortraitSideView(DriveTrain driveTrain, FlyWheel flyWheel, Intake intake, Aimer aimer) {
+        String intakeColor = intake != null && intake.enabled ? COLOR_OK : COLOR_MUTED;
+        String flywheelColor = flyWheel != null && flyWheel.isRunning() ? COLOR_FLYWHEEL : COLOR_MUTED;
+        String flywheelState = flyWheel != null && flyWheel.isRunning() ? "O" : "o";
+        String aimerColor = aimer != null
+                ? (aimer.isAtLargeBallPosition() ? COLOR_BRAND : "#FB923C")
+                : COLOR_MUTED;
+
+        StringBuilder view = new StringBuilder();
+        view.append("<font color=\"#64748B\"><b>SIDE VIEW</b></font>\n");
+        view.append("       <font color=\"#94A3B8\">━━━━━━━━━━━━</font>\n");
+        view.append(String.format("       <font color=\"%s\"><b>%s</b></font>   <font color=\"%s\"><b>●</b></font>\n",
+                flywheelColor, flywheelState, aimerColor));
+        view.append("┌───────────────┐\n");
+        view.append(String.format("│ <font color=\"%s\"><b>●</b></font>   <font color=\"%s\"><b>● ●</b></font>   │\n",
+                intakeColor, flywheelColor));
+        view.append("└───────────────┘");
+        return view.toString();
+    }
+
+    /**
+     * Builds the top-down view of the robot.
+     * Shows four wheels (mecanum) or two wheels (tank), intake, flywheel, and aimer.
+     */
+    private String buildTopDownView(DriveTrain driveTrain, FlyWheel flyWheel, Intake intake, Aimer aimer) {
+        StringBuilder sb = new StringBuilder();
+        boolean mecanum = driveTrain.isMecanumInstalled();
+        String leftWheel = getWheelIndicator(driveTrain.getLeftPower());
+        String rightWheel = getWheelIndicator(driveTrain.getRightPower());
+
+        String intakeState = intake != null && intake.enabled ? "▶" : "■";
+        String intakeColor = intake != null && intake.enabled ? COLOR_OK : COLOR_MUTED;
+        String flywheelState = flyWheel != null && flyWheel.isRunning() ? "◉" : "○";
+        String flywheelColor = flyWheel != null && flyWheel.isRunning() ? COLOR_FLYWHEEL : COLOR_MUTED;
+        String aimerState = aimer != null && aimer.isAtLargeBallPosition() ? "⬜" : "⬛";
+        String aimerColor = aimer != null ? (aimer.isAtLargeBallPosition() ? "#38BDF8" : "#FB923C") : COLOR_MUTED;
+
+        if (mecanum) {
+            String flWheel = getWheelIndicator(driveTrain.getFrontLeftPower());
+            String frWheel = getWheelIndicator(driveTrain.getFrontRightPower());
+            String blWheel = getWheelIndicator(driveTrain.getBackLeftPower());
+            String brWheel = getWheelIndicator(driveTrain.getBackRightPower());
+            sb.append("  <font color=\"#FACC15\"><b>▓▓</b></font> ").append(flWheel).append("-------").append(frWheel).append(" <font color=\"#FACC15\"><b>▓▓</b></font>\n");
+            sb.append("  ┌────────────┐\n");
+            sb.append(String.format("  │  <font color=\"%s\"><b>%s</b></font>  <font color=\"%s\"><b>%s</b></font>  │\n", intakeColor, intakeState, flywheelColor, flywheelState));
+            sb.append(String.format("  │   <font color=\"%s\"><b>%s</b></font>      │\n", aimerColor, aimerState));
+            sb.append("  └────────────┘\n");
+            sb.append("  <font color=\"#FACC15\"><b>▓▓</b></font> ").append(blWheel).append("-------").append(brWheel).append(" <font color=\"#FACC15\"><b>▓▓</b></font>\n");
+        } else {
+            sb.append("  <font color=\"#FACC15\"><b>▓▓</b></font> ").append(leftWheel).append("┌────────┐").append(rightWheel).append(" <font color=\"#FACC15\"><b>▓▓</b></font>\n");
+            sb.append("  └──│        │──┘\n");
+            sb.append(String.format("     │ <font color=\"%s\"><b>%s</b></font>  <font color=\"%s\"><b>%s</b></font> │\n", intakeColor, intakeState, aimerColor, aimerState));
+            sb.append(String.format("     │ <font color=\"%s\"><b>%s</b></font>     │\n", flywheelColor, flywheelState));
+            sb.append("  <font color=\"#FACC15\"><b>▓▓</b></font> └────────┘ <font color=\"#FACC15\"><b>▓▓</b></font>\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Builds the side view of the robot.
+     * Shows intake, flywheel, and aimer from the side.
+     */
+    private String buildSideView(DriveTrain driveTrain, FlyWheel flyWheel, Intake intake, Aimer aimer) {
+        StringBuilder sb = new StringBuilder();
+        String intakeColor = intake != null && intake.enabled ? COLOR_OK : COLOR_MUTED;
+        String flywheelColor = flyWheel != null && flyWheel.isRunning() ? COLOR_FLYWHEEL : COLOR_MUTED;
+        String aimerColor = aimer != null ? (aimer.isAtLargeBallPosition() ? "#38BDF8" : "#FB923C") : COLOR_MUTED;
+        sb.append("        "); // keep the side view separated from the top-down view
+        sb.append(String.format("<font color=\"%s\"><b>●</b></font>", aimerColor));
+        sb.append("  <font color=\"#94A3B8\">━━━━━━━━━━━━━━━━━</font>\n");
+        sb.append("        ╭────────<font color=\"");
+        sb.append(flywheelColor);
+        sb.append("\"><b>◉</b></font>────────╮\n");
+        sb.append(String.format("        │   <font color=\"%s\"><b>●</b></font>   <font color=\"%s\"><b>●●</b></font>    │\n", aimerColor, flywheelColor));
+        sb.append(String.format("  <font color=\"%s\"><b>●</b></font>─────┘", intakeColor));
+        sb.append("              └─────\n");
+        sb.append("  └──────────────────────┘\n");
+        return sb.toString();
+    }
+
+    /**
+     * Returns a visual indicator for wheel power.
+     * ◉ = spinning forward, ◎ = spinning reverse, ○ = stopped
+     */
+    private String getWheelIndicator(double power) {
+        if (power > 0.1) {
+            return "<font color=\"" + COLOR_OK + "\">◉</font>";
+        } else if (power < -0.1) {
+            return "<font color=\"" + COLOR_ERROR + "\">◎</font>";
+        } else {
+            return "<font color=\"" + COLOR_MUTED + "\">○</font>";
+        }
+    }
+
+    /**
+     * Renders the aimer subsystem status.
+     */
+    private void renderAimer(Aimer aimer) {
+        if (aimer == null) return;
+
+        Aimer.BallType ballType = aimer.getLastDetectedBallType();
+        boolean autoDetect = aimer.isAutoDetectEnabled();
+        boolean isLarge = aimer.isAtLargeBallPosition();
+
+        String ballTypeStr = ballType.name();
+        String ballTypeColor = COLOR_MUTED;
+        switch (ballType) {
+            case LARGE_BLUE:
+                ballTypeColor = "#38BDF8";
+                break;
+            case LARGE_RED:
+                ballTypeColor = "#EF4444";
+                break;
+            case SMALL_YELLOW:
+                ballTypeColor = "#FACC15";
+                break;
+            default:
+                ballTypeColor = COLOR_MUTED;
+        }
+
+        String autoDetectStr = autoDetect ? "AUTO" : "MANUAL";
+        String autoDetectColor = autoDetect ? COLOR_OK : COLOR_WARN;
+
+        String positionStr = isLarge ? "LARGE (Blue/Red)" : "SMALL (Yellow)";
+        String positionColor = isLarge ? "#38BDF8" : "#FB923C";
+
+        String teamColorStr = Aimer.isTeamColorBlue() ? "BLUE" : "RED";
+        String teamColorColor = Aimer.isTeamColorBlue() ? "#38BDF8" : "#EF4444";
+
+        telemetry.addLine(String.format(
+                Locale.US,
+                "<b><font color=\"#A78BFA\">▸ Aimer</font></b>  |  Pos: <font color=\"%s\"><b>%s</b></font>  |  Auto: <font color=\"%s\"><b>%s</b></font>  |  Detected: <font color=\"%s\"><b>%s</b></font>  |  Team: <font color=\"%s\"><b>%s</b></font>",
+                positionColor,
+                positionStr,
+                autoDetectColor,
+                autoDetectStr,
+                ballTypeColor,
+                ballTypeStr,
+                teamColorColor,
+                teamColorStr
+        ));
     }
 }

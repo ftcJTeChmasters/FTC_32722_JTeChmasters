@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.robot.RobotHardware;
 import org.firstinspires.ftc.teamcode.robot.debug.RobotMonitor;
+import org.firstinspires.ftc.teamcode.robot.subsystems.Aimer;
 import org.firstinspires.ftc.teamcode.util.ButtonUtils;
 
 /**
@@ -13,8 +14,8 @@ import org.firstinspires.ftc.teamcode.util.ButtonUtils;
  * <p>
  * Emergency Stop (PlayStation layout):
  * <ul>
- *   <li>Hold both triggers (L2 + R2 &gt; 85% for 150ms): GLOBAL E-STOP (all motors off)</li>
- *   <li>Hold SHARE (0.5s): clear global &amp; subsystem E-Stops</li>
+ *   <li>Hold both triggers (L2 + R2 > 85% for 150ms): GLOBAL E-STOP (all motors off)</li>
+ *   <li>Hold SHARE (0.5s): clear global & subsystem E-Stops</li>
  * </ul>
  * <p>
  * Drive controls depend on {@link RobotConstants#MECANUM_ODO_INSTALLED}:
@@ -30,6 +31,14 @@ import org.firstinspires.ftc.teamcode.util.ButtonUtils;
  *   <li>R1 (Right Bumper): set drive speed to fast (100%)</li>
  *   <li>L1 (Left Bumper): set drive speed to slow (50%)</li>
  *   <li>Cross (A): toggle flywheel on/off (or clear flywheel Auto E-Stop)</li>
+ * </ul>
+ * <p>
+ * Aimer controls:
+ * <ul>
+ *   <li>D-Pad UP: set aimer to large ball position (blue/red balls)</li>
+ *   <li>D-Pad DOWN: set aimer to small ball position (yellow balls)</li>
+ *   <li>D-Pad LEFT: toggle auto-detect on/off</li>
+ *   <li>D-Pad RIGHT: toggle team color (BLUE/RED alliance)</li>
  * </ul>
  */
 @TeleOp(name = "Driver Controlled")
@@ -87,6 +96,24 @@ public class DriverControlled extends LinearOpMode {
                 // Flywheel toggle (Cross / A)
                 if (pad1.pressed(ButtonUtils.Button.A)) {
                     robot.flyWheel.toggle();
+                }
+
+                // Aimer controls
+                // D-Pad UP: large ball position
+                if (pad1.pressed(ButtonUtils.Button.DPAD_UP)) {
+                    robot.aimer.setLargeBallPosition();
+                }
+                // D-Pad DOWN: small ball position
+                if (pad1.pressed(ButtonUtils.Button.DPAD_DOWN)) {
+                    robot.aimer.setSmallBallPosition();
+                }
+                // D-Pad LEFT: toggle auto-detect
+                if (pad1.pressed(ButtonUtils.Button.DPAD_LEFT)) {
+                    robot.aimer.setAutoDetectEnabled(!robot.aimer.isAutoDetectEnabled());
+                }
+                // D-Pad RIGHT: toggle team color
+                if (pad1.pressed(ButtonUtils.Button.DPAD_RIGHT)) {
+                    Aimer.setTeamColorBlue(!Aimer.isTeamColorBlue());
                 }
             }
 

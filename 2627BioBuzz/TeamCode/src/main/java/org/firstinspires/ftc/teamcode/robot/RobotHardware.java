@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.robot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.robot.debug.TelemetryServer;
+import org.firstinspires.ftc.teamcode.robot.subsystems.Aimer;
 import org.firstinspires.ftc.teamcode.robot.subsystems.DriveTrain;
 import org.firstinspires.ftc.teamcode.robot.subsystems.FlyWheel;
 import org.firstinspires.ftc.teamcode.robot.subsystems.Intake;
@@ -20,6 +21,7 @@ public class RobotHardware {
     private final LinearOpMode opMode;
     private VoltageSensor voltageSensor;
 
+    public Aimer aimer;
     public DriveTrain driveTrain;
     public FlyWheel flyWheel;
     public Intake intake;
@@ -29,6 +31,7 @@ public class RobotHardware {
     }
 
     public void init() {
+        aimer = new Aimer(opMode.hardwareMap);
         driveTrain = new DriveTrain(opMode.hardwareMap);
         flyWheel = new FlyWheel(opMode.hardwareMap);
         intake = new Intake(opMode.hardwareMap);
@@ -43,6 +46,7 @@ public class RobotHardware {
     }
 
     public void updateAll() {
+        aimer.update();
         driveTrain.update();
         flyWheel.update();
         intake.update();
